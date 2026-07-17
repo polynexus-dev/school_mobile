@@ -27,6 +27,8 @@ export interface UserProfile {
   teacher_profile?: {
     is_class_teacher: boolean;
     class_section?: string | null;
+    is_hm?: boolean;
+    designation?: string | null;
   };
 
   // Conductor-specific
@@ -90,6 +92,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const storedActiveStudent = await storage.getItem("cns_active_student");
 
       const parsedUser: UserProfile | null = storedUser ? JSON.parse(storedUser) : null;
+      if (parsedUser && parsedUser.role) {
+        parsedUser.role = parsedUser.role.toLowerCase() as UserRole;
+      }
 
       set({
         token: storedToken,
@@ -110,6 +115,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setAuth: async (user, token) => {
+    if (user && user.role) {
+      user.role = user.role.toLowerCase() as UserRole;
+    }
     await storage.setItem("cns_token", token);
     await storage.setItem("cns_user", JSON.stringify(user));
     set({ user, token, role: user.role, isAuthenticated: true });

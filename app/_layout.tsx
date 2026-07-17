@@ -1,5 +1,6 @@
-import React, { useEffect } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import "../global.css";
+import React, { useEffect, useState } from "react";
+import { Stack, router, useSegments, useRootNavigationState } from "expo-router";
 import { useAuthStore, UserRole } from "@store/authStore";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { COLORS } from "@/shared/theme/colors";
@@ -19,17 +20,28 @@ const ROLE_HOME: Record<UserRole, string> = {
 };
 
 function RootLayoutNav() {
-  const router = useRouter();
   const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
   const { isAuthenticated, isLoading, initializeAuth, user } = useAuthStore();
+  const [isNavReady, setIsNavReady] = useState(false);
 
   useEffect(() => {
     // 1. Load persisted token/user values
     initializeAuth();
   }, []);
 
+  // Safe navigation ready check to avoid race conditions with Expo Router context
   useEffect(() => {
-    if (isLoading) return;
+    if (rootNavigationState?.key) {
+      const t = setTimeout(() => setIsNavReady(true), 150);
+      return () => clearTimeout(t);
+    } else {
+      setIsNavReady(false);
+    }
+  }, [rootNavigationState?.key]);
+
+  useEffect(() => {
+    if (isLoading || !isNavReady) return;
 
     const currentGroup = segments[0];
     const inConsentGroup = currentGroup === "(consent)";
@@ -37,10 +49,22 @@ function RootLayoutNav() {
     const inAppGroup =
       currentGroup === "(teacher)" || currentGroup === "(parent)" || currentGroup === "(conductor)";
 
+    const performRedirect = (route: string, retries = 0) => {
+      try {
+        router.replace(route as any);
+      } catch (e) {
+        if (retries < 15) {
+          setTimeout(() => performRedirect(route, retries + 1), 80);
+        } else {
+          console.error("[Navigation] Redirect failed permanently after 15 retries:", e);
+        }
+      }
+    };
+
     if (!isAuthenticated) {
       // Redirect to login if accessing any protected route while unauthenticated
       if (inAppGroup || inConsentGroup) {
-        router.replace(ROUTES.AUTH.LOGIN);
+        performRedirect(ROUTES.AUTH.LOGIN);
       }
       return;
     }
@@ -49,7 +73,7 @@ function RootLayoutNav() {
     if (user && user.consent_given === false) {
       // Force to the DPDP consent gate until it is accepted.
       if (!inConsentGroup) {
-        router.replace(ROUTES.CONSENT.CONSENT);
+        performRedirect(ROUTES.CONSENT.CONSENT);
       }
       return;
     }
@@ -59,19 +83,24 @@ function RootLayoutNav() {
     const homeRoute = ROLE_HOME[user.role];
     const roleGroup = ROLE_GROUP[user.role];
 
-    if (inAuthGroup || inConsentGroup) {
-      router.replace(homeRoute as any);
+    if (!homeRoute || !roleGroup) {
+      console.error(`[Navigation] Invalid route mapping for role: ${user.role}`);
       return;
     }
 
-    // Genuinely separate route groups per role (Teacher / Parent / Conductor) —
+    if (inAuthGroup || inConsentGroup) {
+      performRedirect(homeRoute);
+      return;
+    }
+
+    // Separator route groups per role (Teacher / Parent / Conductor) —
     // a user landing in a group that isn't their own gets bounced to their home.
     if (inAppGroup && currentGroup !== roleGroup) {
-      router.replace(homeRoute as any);
+      performRedirect(homeRoute);
     }
-  }, [isAuthenticated, isLoading, segments, user?.consent_given, user?.role]);
+  }, [isAuthenticated, isLoading, isNavReady, segments, user?.consent_given, user?.role]);
 
-  if (isLoading) {
+  if (isLoading || !isNavReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />

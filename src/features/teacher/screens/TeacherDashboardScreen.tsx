@@ -6,6 +6,7 @@ import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { useAuthStore } from "@store/authStore";
 import { teacherApi, ClassSection } from "../api/teacherApi";
 import { ROUTES } from "@/constants/route";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function initials(name?: string) {
   if (!name) return "T";
@@ -19,10 +20,15 @@ export const TeacherDashboardScreen: React.FC = () => {
   const [sections, setSections] = useState<ClassSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<"mine" | "all">("mine");
+  const insets = useSafeAreaInsets();
 
   const fetchSections = useCallback(async () => {
     try {
-      const data = await teacherApi.getMyClassSections();
+      const isHm = user?.teacher_profile?.is_hm;
+      const data = await teacherApi.getMyClassSections({
+        mine: isHm ? activeTab === "mine" : true,
+      });
       setSections(data);
     } catch (err) {
       console.error("Failed to load class sections:", err);
@@ -30,7 +36,7 @@ export const TeacherDashboardScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user, activeTab]);
 
   useEffect(() => {
     fetchSections();
@@ -46,7 +52,7 @@ export const TeacherDashboardScreen: React.FC = () => {
 
   return (
     <ScreenWrapper style={styles.root} scrollable disablePadding>
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
         <View style={styles.heroTopRow}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials(teacherName)}</Text>
@@ -54,7 +60,13 @@ export const TeacherDashboardScreen: React.FC = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.teacherName}>{teacherName}</Text>
             <Text style={styles.teacherMeta}>
-              {user?.teacher_profile?.class_section
+              {user?.teacher_profile?.is_hm
+                ? `${user.teacher_profile.designation || "Head Master"}${
+                    user.teacher_profile.class_section
+                      ? ` · Class teacher, ${user.teacher_profile.class_section}`
+                      : ""
+                  }`
+                : user?.teacher_profile?.class_section
                 ? `Class teacher, ${user.teacher_profile.class_section}`
                 : "Teacher"}
             </Text>
@@ -77,6 +89,27 @@ export const TeacherDashboardScreen: React.FC = () => {
 
       <View style={styles.listSection}>
         <Text style={styles.listLabel}>TODAY'S CLASSES</Text>
+
+        {user?.teacher_profile?.is_hm && (
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === "mine" && styles.tabActiveButton]}
+              onPress={() => setActiveTab("mine")}
+            >
+              <Text style={[styles.tabText, activeTab === "mine" && styles.tabActiveText]}>
+                My Classes
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === "all" && styles.tabActiveButton]}
+              onPress={() => setActiveTab("all")}
+            >
+              <Text style={[styles.tabText, activeTab === "all" && styles.tabActiveText]}>
+                All Classes
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {loading && <ActivityIndicator color={COLORS.primary} style={{ marginTop: 24 }} />}
 
@@ -176,6 +209,37 @@ const styles = StyleSheet.create({
   ctaText: { color: COLORS.white, fontSize: 12.5, fontWeight: "600" },
   ctaBtnMuted: { paddingVertical: 9, paddingHorizontal: 8 },
   ctaTextMuted: { color: COLORS.textMuted, fontSize: 11.5, fontWeight: "600" },
+  tabContainer: {
+    flexDirection: "row",
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(28,10,74,0.06)",
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  tabActiveButton: {
+    backgroundColor: COLORS.surface,
+    shadowColor: "#1C0A4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textMuted,
+  },
+  tabActiveText: {
+    color: COLORS.primary,
+  },
 });
 
 export default TeacherDashboardScreen;

@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/shared/theme/colors";
 import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { useAuthStore } from "@store/authStore";
 import { ROUTES } from "@/constants/route";
+import { teacherApi } from "../api/teacherApi";
 
 function initials(name?: string) {
   if (!name) return "T";
@@ -17,6 +18,20 @@ export const MoreTabScreen: React.FC = () => {
   const logout = useAuthStore((state) => state.logout);
 
   const name = `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || user?.username || "Teacher";
+
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    const loadPendingCount = async () => {
+      try {
+        const count = await teacherApi.getPendingCorrectionsCount();
+        setPendingCount(count);
+      } catch (err) {
+        console.error("Failed to load corrections count", err);
+      }
+    };
+    loadPendingCount();
+  }, []);
 
   const handleLogout = () => {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
@@ -46,7 +61,14 @@ export const MoreTabScreen: React.FC = () => {
 
       <View style={styles.menu}>
         <TouchableOpacity style={styles.menuRow} onPress={() => router.push(ROUTES.TEACHER.CORRECTIONS)}>
-          <Text style={styles.menuLabel}>Correction requests</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Text style={styles.menuLabel}>Correction requests</Text>
+            {pendingCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendingCount}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuRow} onPress={() => router.push(ROUTES.TEACHER.MARKS_ENTRY)}>
@@ -103,6 +125,19 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   logoutText: { color: COLORS.error, fontWeight: "700", fontSize: 14 },
+  badge: {
+    backgroundColor: COLORS.error,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10.5,
+    fontWeight: "700",
+  },
 });
 
 export default MoreTabScreen;

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { COLORS } from "@/shared/theme/colors";
 import { ChildSwitcher } from "../components/ChildSwitcher";
@@ -17,7 +18,15 @@ export const AcademicsTabScreen: React.FC = () => {
   const router = useRouter();
 
   return (
-    <ScreenWrapper title="Academics" showHeader showBack={false} scrollable right={<ChildSwitcher />} contentContainerStyle={styles.content}>
+    <ScreenWrapper
+      title="Academics"
+      titleIcon={<Ionicons name="school-outline" size={20} color={COLORS.text} />}
+      showHeader
+      showBack={false}
+      scrollable
+      right={<ChildSwitcher />}
+      contentContainerStyle={styles.content}
+    >
       {ITEMS.map((item) => (
         <TouchableOpacity key={item.title} style={styles.card} onPress={() => router.push(item.route)} activeOpacity={0.85}>
           <View style={styles.iconCircle}>

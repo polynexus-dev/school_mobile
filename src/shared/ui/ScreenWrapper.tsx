@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
     title?: string;
+    titleIcon?: React.ReactNode;
     children: React.ReactNode;
     right?: React.ReactNode;
     showBack?: boolean;
@@ -37,6 +38,7 @@ type Props = {
 
 export function ScreenWrapper({
     title = "",
+    titleIcon,
     children,
     right,
     showBack = false,
@@ -56,7 +58,7 @@ export function ScreenWrapper({
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const bottomPadding = useBottomTabPadding(16, hasTabs);
-    const headerHeight = Platform.OS === "ios" ? insets.top + 50 : insets.top + 58;
+    const headerHeight = Platform.OS === "ios" ? insets.top + 64 : insets.top + 72;
 
     return (
         <View
@@ -107,9 +109,12 @@ export function ScreenWrapper({
                         )}
                     </View>
 
-                    <Text numberOfLines={1} style={[styles.title, { color: titleColor }]}>
-                        {title}
-                    </Text>
+                    <View style={styles.titleContainer}>
+                        {titleIcon}
+                        <Text numberOfLines={1} style={[styles.titleText, { color: titleColor }]}>
+                            {title}
+                        </Text>
+                    </View>
 
                     <View style={[styles.side, styles.rightSide]}>
                         {right}
@@ -167,15 +172,23 @@ const styles = StyleSheet.create({
         backgroundColor: "transparent",
     },
 
-    title: {
+    titleContainer: {
         flex: 1,
-        textAlign: "center",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingHorizontal: 8,
+    },
+
+    titleText: {
         fontSize: 18,
         fontWeight: "600",
+        flexShrink: 1,
     },
 
     side: {
-        width: 60,
+        minWidth: 40,
         justifyContent: "center",
     },
 

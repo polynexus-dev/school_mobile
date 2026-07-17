@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView
 import { useRouter } from "expo-router";
 import { COLORS } from "@/shared/theme/colors";
 import { useAuthStore } from "@store/authStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { parentApi, AttendanceEntry, AttendanceStatus } from "../api/parentApi";
 import { ChildSwitcher } from "../components/ChildSwitcher";
 
@@ -23,6 +24,7 @@ export const AttendanceCalendarScreen: React.FC = () => {
   const students = useAuthStore((state) => state.students);
   const activeStudentId = useAuthStore((state) => state.activeStudentId);
   const activeStudent = students.find((s) => s.id === activeStudentId) ?? students[0];
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
@@ -85,7 +87,7 @@ export const AttendanceCalendarScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backArrow}>
           <Text style={styles.backArrowText}>←</Text>
         </TouchableOpacity>
@@ -106,18 +108,24 @@ export const AttendanceCalendarScreen: React.FC = () => {
             </View>
             <View style={{ flex: 1, gap: 8 }}>
               <View style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.success }]} />
-                <Text style={styles.legendText}>Present</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.success }]} />
+                  <Text style={styles.legendText}>Present</Text>
+                </View>
                 <Text style={styles.legendValue}>{counts.present} days</Text>
               </View>
               <View style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.error }]} />
-                <Text style={styles.legendText}>Absent</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.error }]} />
+                  <Text style={styles.legendText}>Absent</Text>
+                </View>
                 <Text style={styles.legendValue}>{counts.absent} days</Text>
               </View>
               <View style={styles.legendRow}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} />
-                <Text style={styles.legendText}>Leave</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} />
+                  <Text style={styles.legendText}>Leave</Text>
+                </View>
                 <Text style={styles.legendValue}>{counts.leave} days</Text>
               </View>
             </View>
@@ -199,7 +207,7 @@ export const AttendanceCalendarScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 8 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingBottom: 8 },
   backArrow: { padding: 4 },
   backArrowText: { fontSize: 18, color: COLORS.text },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", color: COLORS.text },
@@ -212,9 +220,9 @@ const styles = StyleSheet.create({
   },
   donutPct: { fontWeight: "700", fontSize: 17, color: "#065F46" },
   donutLabel: { fontSize: 8.5, color: COLORS.textMuted, fontWeight: "700", marginTop: 1 },
-  legendRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  legendRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   legendDot: { width: 9, height: 9, borderRadius: 3 },
-  legendText: { flex: 1, fontSize: 13, color: COLORS.textSecondary },
+  legendText: { fontSize: 13, color: COLORS.textSecondary },
   legendValue: { fontSize: 13, fontWeight: "700", color: COLORS.text },
   calendarCard: { backgroundColor: COLORS.surface, borderRadius: 22, padding: 18, shadowColor: "#1C0A4A", shadowOpacity: 0.06, shadowRadius: 16 },
   monthRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },

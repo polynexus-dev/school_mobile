@@ -25,7 +25,15 @@ export const parentApi = {
   /** Linked children for the signed-in guardian (backend scopes this by the requesting user). */
   getMyChildren: async (): Promise<LinkedStudent[]> => {
     const res = await httpClient.get("/api/students/");
-    return res.data?.results ?? res.data ?? [];
+    const rawStudents = res.data?.results ?? res.data ?? [];
+    return rawStudents.map((s: any) => ({
+      id: s.id,
+      admission_no: s.admission_no,
+      first_name: s.user_detail?.first_name ?? s.first_name ?? "",
+      last_name: s.user_detail?.last_name ?? s.last_name ?? "",
+      class_section: s.class_section_name ?? s.class_section ?? "",
+      roll_no: s.roll_number ?? s.roll_no ?? "",
+    }));
   },
 
   getAttendance: async (studentId: number, month?: string): Promise<AttendanceEntry[]> => {
