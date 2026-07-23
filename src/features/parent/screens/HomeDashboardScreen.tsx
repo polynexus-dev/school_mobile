@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/shared/theme/colors";
 import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { useAuthStore } from "@store/authStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { parentApi, AnnouncementItem, AttendanceEntry } from "../api/parentApi";
 import { ChildSwitcher } from "../components/ChildSwitcher";
 import { ROUTES } from "@/constants/route";
@@ -28,6 +29,8 @@ export const HomeDashboardScreen: React.FC = () => {
   const students = useAuthStore((state) => state.students);
   const activeStudentId = useAuthStore((state) => state.activeStudentId);
   const setStudents = useAuthStore((state) => state.setStudents);
+  const setActiveStudentId = useAuthStore((state) => state.setActiveStudentId);
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [attendancePct, setAttendancePct] = useState<number | null>(null);
@@ -37,13 +40,21 @@ export const HomeDashboardScreen: React.FC = () => {
   const activeStudent = students.find((s) => s.id === activeStudentId) ?? students[0];
 
   const load = useCallback(async () => {
+    console.log("[Dashboard] Loading parent dashboard...");
     setLoading(true);
     try {
+      console.log("[Dashboard] Fetching children and feed...");
       const [children, feed] = await Promise.all([parentApi.getMyChildren(), parentApi.getAnnouncements()]);
-      if (children.length > 0) await setStudents(children);
+      console.log("[Dashboard] Children fetched:", JSON.stringify(children));
+      console.log("[Dashboard] Announcements fetched count:", feed.length);
+      if (children.length > 0) {
+        await setStudents(children);
+      } else {
+        console.warn("[Dashboard] Children array is empty!");
+      }
       setAnnouncements(feed.slice(0, 4));
     } catch (err) {
-      console.error("Failed to load parent dashboard:", err);
+      console.error("[Dashboard] Failed to load parent dashboard:", err);
     } finally {
       setLoading(false);
     }
@@ -77,7 +88,7 @@ export const HomeDashboardScreen: React.FC = () => {
 
   return (
     <ScreenWrapper style={styles.root} scrollable disablePadding>
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
         <View style={styles.heroTopRow}>
           <ChildSwitcher variant="light" />
           {students.length > 1 &&
@@ -85,9 +96,14 @@ export const HomeDashboardScreen: React.FC = () => {
               .filter((s) => s.id !== activeStudent?.id)
               .slice(0, 1)
               .map((s) => (
-                <View key={s.id} style={styles.secondaryAvatar}>
+                <TouchableOpacity
+                  key={s.id}
+                  style={styles.secondaryAvatar}
+                  onPress={() => setActiveStudentId(s.id)}
+                  activeOpacity={0.8}
+                >
                   <Text style={styles.secondaryAvatarText}>{initials(s.first_name, s.last_name)}</Text>
-                </View>
+                </TouchableOpacity>
               ))}
           <View style={{ flex: 1 }} />
           <TouchableOpacity style={styles.bellBtn} onPress={() => router.push(ROUTES.PARENT.NOTIFICATIONS)}>
@@ -126,7 +142,7 @@ export const HomeDashboardScreen: React.FC = () => {
                   {activeStudent.first_name} {activeStudent.last_name}
                 </Text>
                 <Text style={styles.studentMeta}>
-                  Class {activeStudent.class_section} · Roll {activeStudent.roll_no ?? "—"}
+                  {activeStudent.class_section.startsWith("Class") ? activeStudent.class_section : `Class ${activeStudent.class_section}`} · Roll {activeStudent.roll_no ?? "—"}
                 </Text>
               </View>
               {attendancePct !== null && (

@@ -9,7 +9,7 @@ function initials(first?: string, last?: string) {
 
 interface Props {
   /** Renders light text/pill suited for a dark gradient header. */
-  variant?: "light" | "surface";
+  variant?: "light" | "surface" | "compact" | "compact-light";
 }
 
 export const ChildSwitcher: React.FC<Props> = ({ variant = "surface" }) => {
@@ -22,20 +22,35 @@ export const ChildSwitcher: React.FC<Props> = ({ variant = "surface" }) => {
 
   if (!active) return null;
 
+  const isCompact = variant === "compact" || variant === "compact-light";
+
   return (
     <>
       <TouchableOpacity
-        style={[styles.pill, variant === "light" ? styles.pillLight : styles.pillSurface]}
+        style={[
+          styles.pill,
+          isCompact
+            ? (variant === "compact-light" ? styles.pillCompactLight : styles.pillCompact)
+            : (variant === "light" ? styles.pillLight : styles.pillSurface)
+        ]}
         onPress={() => setOpen(true)}
         activeOpacity={0.8}
       >
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials(active.first_name, active.last_name)}</Text>
         </View>
-        <Text style={[styles.name, variant === "light" && styles.nameLight]}>
-          {active.first_name} · {active.class_section}
+        {!isCompact && (
+          <Text style={[styles.name, variant === "light" && styles.nameLight]}>
+            {active.first_name} · {active.class_section.replace(/^Class\s+/i, "")}
+          </Text>
+        )}
+        <Text style={[
+          styles.caret,
+          (variant === "light" || variant === "compact-light") && styles.caretLight,
+          isCompact && { marginLeft: -2 }
+        ]}>
+          ▾
         </Text>
-        <Text style={[styles.caret, variant === "light" && styles.caretLight]}>▾</Text>
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -58,7 +73,9 @@ export const ChildSwitcher: React.FC<Props> = ({ variant = "surface" }) => {
                   <Text style={styles.sheetName}>
                     {s.first_name} {s.last_name}
                   </Text>
-                  <Text style={styles.sheetMeta}>Class {s.class_section}</Text>
+                  <Text style={styles.sheetMeta}>
+                    {s.class_section.startsWith("Class") ? s.class_section : `Class ${s.class_section}`}
+                  </Text>
                 </View>
                 {s.id === active.id && <Text style={styles.checkMark}>✓</Text>}
               </TouchableOpacity>
@@ -82,6 +99,8 @@ const styles = StyleSheet.create({
   },
   pillSurface: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
   pillLight: { backgroundColor: "rgba(255,255,255,0.14)", borderWidth: 1, borderColor: "rgba(255,255,255,0.22)" },
+  pillCompact: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 6, paddingVertical: 4, gap: 4 },
+  pillCompactLight: { backgroundColor: "rgba(255,255,255,0.14)", borderWidth: 1, borderColor: "rgba(255,255,255,0.22)", paddingHorizontal: 6, paddingVertical: 4, gap: 4 },
   avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.secondary, alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 11 },
   name: { fontSize: 12.5, fontWeight: "600", color: COLORS.text },

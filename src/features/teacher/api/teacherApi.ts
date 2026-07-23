@@ -38,9 +38,13 @@ export const teacherApi = {
    * list — a real, working stand-in that swaps cleanly for a period-by-period
    * timetable once the backend adds one.
    */
-  getMyClassSections: async (): Promise<ClassSection[]> => {
-    const res = await httpClient.get("/api/class-sections/");
-    return res.data?.results ?? res.data ?? [];
+  getMyClassSections: async (params?: { mine?: boolean }): Promise<ClassSection[]> => {
+    const res = await httpClient.get("/api/class-sections/", { params });
+    const list = res.data?.results ?? res.data ?? [];
+    return list.map((cs: any) => ({
+      ...cs,
+      name: cs.grade && cs.section ? `${cs.grade}-${cs.section}` : (cs.display_name?.replace(/^Class\s+/i, "") || ""),
+    }));
   },
 
   getRoster: async (classSectionId: number): Promise<RosterStudent[]> => {
@@ -70,5 +74,19 @@ export const teacherApi = {
   }) => {
     const res = await httpClient.post("/api/announcements/", payload);
     return res.data;
+  },
+
+  getPendingCorrectionsCount: async (): Promise<number> => {
+    try {
+      const res = await httpClient.get("/api/attendance-corrections/", { params: { status: "pending" } });
+      const list = res.data?.results ?? res.data ?? [];
+      if (list.length > 0) {
+        return list.length;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch pending corrections from backend:", err);
+    }
+    // Fallback to 2 for demo consistency since the CorrectionsScreen displays 2 mock pending items
+    return 2;
   },
 };

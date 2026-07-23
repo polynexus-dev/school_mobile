@@ -19,17 +19,30 @@ httpClient.interceptors.request.use(
       config.url = buildUrl(config.url);
     }
 
+    const url = config.url || "";
+    const isLoginRequest = url.includes("/api/token/") || url.includes("/api/parent/otp/");
+    console.log(`[HTTP Interceptor] Request to: ${url} (isLoginRequest=${isLoginRequest})`);
+
     const token = useAuthStore.getState().token;
-    if (token) {
+    if (token && !isLoginRequest) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (isLoginRequest) {
+      delete config.headers.Authorization;
+      if (config.headers.delete) {
+        config.headers.delete("Authorization");
+        config.headers.delete("authorization");
+      }
     }
 
-    // Attach tenant schema header for local IP routing.
-    // The backend's SchoolTenantMiddleware uses this to switch to the
-    // correct school's tenant schema.
     const schoolSchema = useAuthStore.getState().schoolSchema;
-    if (schoolSchema) {
+    if (schoolSchema && !isLoginRequest) {
       config.headers["X-Tenant"] = schoolSchema;
+    } else if (isLoginRequest) {
+      delete config.headers["X-Tenant"];
+      if (config.headers.delete) {
+        config.headers.delete("X-Tenant");
+        config.headers.delete("x-tenant");
+      }
     }
 
     return config;

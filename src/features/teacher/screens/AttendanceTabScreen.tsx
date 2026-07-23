@@ -5,6 +5,7 @@ import { COLORS } from "@/shared/theme/colors";
 import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { teacherApi, ClassSection } from "../api/teacherApi";
 import { ROUTES } from "@/constants/route";
+import { useAuthStore } from "@store/authStore";
 
 /**
  * Attendance tab — same class-section roster as the Today dashboard, but
@@ -13,13 +14,18 @@ import { ROUTES } from "@/constants/route";
  */
 export const AttendanceTabScreen: React.FC = () => {
   const router = useRouter();
+  const user = useAuthStore((state) => state.user);
   const [sections, setSections] = useState<ClassSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<"mine" | "all">("mine");
 
   const load = useCallback(async () => {
     try {
-      const data = await teacherApi.getMyClassSections();
+      const isHm = user?.teacher_profile?.is_hm;
+      const data = await teacherApi.getMyClassSections({
+        mine: isHm ? activeTab === "mine" : true,
+      });
       setSections(data);
     } catch (err) {
       console.error("Failed to load class sections:", err);
@@ -27,7 +33,7 @@ export const AttendanceTabScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user, activeTab]);
 
   useEffect(() => {
     load();
@@ -41,6 +47,27 @@ export const AttendanceTabScreen: React.FC = () => {
       contentContainerStyle={styles.content}
     >
       <Text style={styles.subtitle}>Select a class to take or review today's attendance.</Text>
+
+      {user?.teacher_profile?.is_hm && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === "mine" && styles.tabActiveButton]}
+            onPress={() => setActiveTab("mine")}
+          >
+            <Text style={[styles.tabText, activeTab === "mine" && styles.tabActiveText]}>
+              My Classes
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === "all" && styles.tabActiveButton]}
+            onPress={() => setActiveTab("all")}
+          >
+            <Text style={[styles.tabText, activeTab === "all" && styles.tabActiveText]}>
+              All Classes
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {loading && <ActivityIndicator color={COLORS.primary} style={{ marginTop: 24 }} />}
 
@@ -98,6 +125,37 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: "center", color: COLORS.textMuted, marginTop: 30 },
   correctionsLink: { marginTop: 12, alignItems: "center", paddingVertical: 10 },
   correctionsLinkText: { color: COLORS.primary, fontWeight: "700", fontSize: 13 },
+  tabContainer: {
+    flexDirection: "row",
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(28,10,74,0.06)",
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  tabActiveButton: {
+    backgroundColor: COLORS.surface,
+    shadowColor: "#1C0A4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textMuted,
+  },
+  tabActiveText: {
+    color: COLORS.primary,
+  },
 });
 
 export default AttendanceTabScreen;

@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  StyleSheet,
   View,
   Text,
   ScrollView,
@@ -12,38 +11,65 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { COLORS } from "@/shared/theme/colors";
+import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/shared/ui/Button";
 import { Input } from "@/shared/ui/Input";
 import { useAuthStore } from "@store/authStore";
+import { storage } from "@services/storage/secureStore";
 import { authApi } from "../api/authApi";
 import { ROUTES } from "@/constants/route";
 
-/**
- * Plain username + password login — for Teacher and Bus Conductor roles.
- * Parents never see this screen; they onboard via OTP (see OtpRequestScreen).
- */
+type LoginMethod = "password" | "otp";
+
 export const LoginScreen: React.FC = () => {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
   const setSchoolDomain = useAuthStore((state) => state.setSchoolDomain);
   const setSchoolSchema = useAuthStore((state) => state.setSchoolSchema);
 
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>("password"); // password as default primary
+  const [loading, setLoading] = useState(false);
+
+  // Password Login Fields (Works for Teacher, Conductor, and Parent)
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validate = () => {
+  // OTP Login Fields (Parent onboarding/recovery)
+  const [phone, setPhone] = useState("");
+
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      try {
+        const storedRememberMe = await storage.getItem("cns_remember_me");
+        if (storedRememberMe === "true") {
+          setRememberMe(true);
+          const storedUsername = await storage.getItem("cns_saved_username");
+          const storedPassword = await storage.getItem("cns_saved_password");
+          const storedPhone = await storage.getItem("cns_saved_phone");
+          if (storedUsername) setUsername(storedUsername);
+          if (storedPassword) setPassword(storedPassword);
+          if (storedPhone) setPhone(storedPhone);
+        }
+      } catch (err) {
+        console.error("Failed to load saved credentials:", err);
+      }
+    };
+    loadSavedCredentials();
+  }, []);
+
+  const validatePasswordFields = () => {
     const nextErrors: Record<string, string> = {};
-    if (!username) nextErrors.username = "Username is required";
+    if (!username) nextErrors.username = "Username or Email is required";
     if (!password) nextErrors.password = "Password is required";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleLogin = async () => {
-    if (!validate()) return;
+  const handlePasswordLogin = async () => {
+    if (!validatePasswordFields()) return;
     setLoading(true);
 
     try {
@@ -51,8 +77,16 @@ export const LoginScreen: React.FC = () => {
       await setSchoolDomain(result.tenant_domain ?? null);
       await setSchoolSchema(result.tenant_schema ?? null);
       await setAuth(result.profile, result.access);
-      // The root layout's auth gate takes over from here (consent check,
-      // then role-based redirect into (teacher) or (conductor)).
+
+      if (rememberMe) {
+        await storage.setItem("cns_remember_me", "true");
+        await storage.setItem("cns_saved_username", username);
+        await storage.setItem("cns_saved_password", password);
+      } else {
+        await storage.removeItem("cns_remember_me");
+        await storage.removeItem("cns_saved_username");
+        await storage.removeItem("cns_saved_password");
+      }
     } catch (err: any) {
       setSchoolDomain(null);
       setSchoolSchema(null);
@@ -62,169 +96,178 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
+  const handleParentOtpRequest = async () => {
+    const trimmed = phone.trim();
+    if (trimmed.length < 10) {
+      Alert.alert("Enter a valid number", "Please enter the 10-digit mobile number the school has on file.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await authApi.requestParentOtp(trimmed);
+      if (rememberMe) {
+        await storage.setItem("cns_remember_me", "true");
+        await storage.setItem("cns_saved_phone", trimmed);
+      } else {
+        await storage.removeItem("cns_remember_me");
+        await storage.removeItem("cns_saved_phone");
+      }
+      router.push({ pathname: ROUTES.AUTH.OTP_VERIFY, params: { phone: trimmed } });
+    } catch (err: any) {
+      Alert.alert("Couldn't send code", err.message || "This number isn't linked to any student yet.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.container}
+      className="flex-1 bg-violet-955"
+      style={{ backgroundColor: "#2e1065" }}
     >
       <StatusBar style="light" />
 
-      <View style={styles.glowTopRight} />
-      <View style={styles.glowBottomLeft} />
+      {/* Decorative Glow Elements */}
+      <View 
+        className="absolute -top-24 -right-24 w-80 h-80 rounded-full opacity-20" 
+        style={{ backgroundColor: "#8b5cf6" }} 
+      />
+      <View 
+        className="absolute -bottom-28 -left-28 w-80 h-80 rounded-full opacity-15" 
+        style={{ backgroundColor: "#d946ef" }} 
+      />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image source={require("../../../../assets/campus_nexus_icon.png")} style={styles.logoImage} />
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="items-center mb-8">
+          <View className="w-20 h-20 bg-white rounded-3xl justify-center items-center mb-4 shadow-lg shadow-black/30">
+            <Image 
+              source={require("../../../../assets/campus_nexus_icon.png")} 
+              className="w-12 h-12" 
+              resizeMode="contain" 
+            />
           </View>
-          <Text style={styles.title}>
-            Campus<Text style={styles.titleHighlight}>Nexus</Text>
+          <Text className="text-3xl font-extrabold text-white tracking-wider">
+            Campus<Text className="text-violet-300">Nexus</Text>
           </Text>
-          <Text style={styles.subtitle}>School Edition · Staff Sign In</Text>
+          <Text className="text-sm text-white/70 mt-1.5 font-semibold tracking-wide">
+            School Edition
+          </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardGreeting}>Welcome back</Text>
-          <Text style={styles.cardSubtitle}>Sign in as Teacher or Bus Conductor</Text>
+        <View className="bg-white rounded-3xl p-6 shadow-xl shadow-black/25">
+          <Text className="text-xl font-extrabold text-slate-800 mb-1">
+            Welcome back
+          </Text>
+          <Text className="text-sm text-slate-500 mb-6">
+            {loginMethod === "password" 
+              ? "Sign in with your username or email" 
+              : "Enter your registered mobile number"
+            }
+          </Text>
 
-          <Input
-            label="Username"
-            placeholder="Enter your username"
-            value={username}
-            onChangeText={setUsername}
-            error={errors.username}
-          />
+          {/* Dynamic Form Content */}
+          {loginMethod === "password" ? (
+            <View>
+              <Input
+                label="Username / Email"
+                placeholder="Enter username or email"
+                value={username}
+                onChangeText={setUsername}
+                error={errors.username}
+              />
+              <Input
+                label="Password"
+                placeholder="••••••••"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                error={errors.password}
+              />
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => setRememberMe(!rememberMe)}
+                style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}
+              >
+                <Ionicons 
+                  name={rememberMe ? "checkbox" : "square-outline"} 
+                  size={20} 
+                  color="#7c3aed"
+                />
+                <Text style={{ marginLeft: 8, fontSize: 13.5, color: "#475569" }}>
+                  Remember me
+                </Text>
+              </TouchableOpacity>
+              <Button 
+                title="Sign In" 
+                onPress={handlePasswordLogin} 
+                loading={loading} 
+                style={{ marginTop: 8 }}
+              />
 
-          <Input
-            label="Password"
-            placeholder="••••••••"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            error={errors.password}
-          />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setLoginMethod("otp")}
+                className="mt-6 items-center"
+              >
+                <Text className="text-sm font-bold text-violet-600">
+                  Parent? Sign in with Mobile OTP instead →
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View>
+              <Input
+                label="Mobile number"
+                placeholder="98XXXXXX42"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                maxLength={10}
+              />
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => setRememberMe(!rememberMe)}
+                style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}
+              >
+                <Ionicons 
+                  name={rememberMe ? "checkbox" : "square-outline"} 
+                  size={20} 
+                  color="#7c3aed"
+                />
+                <Text style={{ marginLeft: 8, fontSize: 13.5, color: "#475569" }}>
+                  Remember me
+                </Text>
+              </TouchableOpacity>
+              <Button 
+                title="Send OTP" 
+                onPress={handleParentOtpRequest} 
+                loading={loading} 
+                style={{ marginTop: 8 }}
+              />
 
-          <Button title="Sign In" onPress={handleLogin} loading={loading} style={styles.button} />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setLoginMethod("password")}
+                className="mt-6 items-center"
+              >
+                <Text className="text-sm font-bold text-violet-600">
+                  Sign in with Username & Password instead →
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.parentLink}
-            onPress={() => router.push(ROUTES.AUTH.OTP_REQUEST)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.parentLinkText}>Parent? Sign in with your mobile number →</Text>
-          </TouchableOpacity>
+              <Text className="text-[11px] text-slate-400 text-center leading-normal mt-6 px-2">
+                Your data is protected under the DPDP Act 2023. We will send a 6-digit one-time passcode to this number.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.primaryDark,
-    position: "relative",
-  },
-  glowTopRight: {
-    position: "absolute",
-    top: -100,
-    right: -100,
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    backgroundColor: COLORS.secondary,
-    opacity: 0.22,
-    zIndex: -1,
-  },
-  glowBottomLeft: {
-    position: "absolute",
-    bottom: -120,
-    left: -120,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: COLORS.accent,
-    opacity: 0.18,
-    zIndex: -1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 24,
-    paddingTop: Platform.OS === "ios" ? 64 : 48,
-    paddingBottom: 32,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  logoContainer: {
-    width: 92,
-    height: 92,
-    borderRadius: 26,
-    backgroundColor: COLORS.white,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  logoImage: {
-    width: 58,
-    height: 58,
-    resizeMode: "contain",
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "900",
-    color: COLORS.white,
-    letterSpacing: 1,
-  },
-  titleHighlight: {
-    color: "#C4B5FD",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.75)",
-    marginTop: 6,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 28,
-    padding: 24,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-  },
-  cardGreeting: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 22,
-  },
-  button: {
-    marginTop: 8,
-  },
-  parentLink: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-  parentLinkText: {
-    color: COLORS.primary,
-    fontSize: 13.5,
-    fontWeight: "700",
-  },
-});
 
 export default LoginScreen;

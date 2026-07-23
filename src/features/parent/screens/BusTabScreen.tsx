@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { COLORS } from "@/shared/theme/colors";
 import { ChildSwitcher } from "../components/ChildSwitcher";
@@ -10,7 +11,15 @@ export const BusTabScreen: React.FC = () => {
   const router = useRouter();
 
   return (
-    <ScreenWrapper title="Bus" showHeader showBack={false} scrollable right={<ChildSwitcher />} contentContainerStyle={styles.content}>
+    <ScreenWrapper
+      title="Bus"
+      titleIcon={<Ionicons name="bus-outline" size={20} color={COLORS.text} />}
+      showHeader
+      showBack={false}
+      scrollable
+      right={<ChildSwitcher />}
+      contentContainerStyle={styles.content}
+    >
       <TouchableOpacity style={styles.liveCard} onPress={() => router.push(ROUTES.PARENT.BUS_TRACKING)} activeOpacity={0.85}>
         <View style={styles.liveRow}>
           <View style={styles.liveDot} />

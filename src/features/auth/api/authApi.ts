@@ -28,7 +28,30 @@ async function fetchProfileWithToken(access: string, tenantSchema?: string | nul
       ...(tenantSchema ? { "X-Tenant": tenantSchema } : {}),
     },
   });
-  return res.data;
+  const data = res.data;
+  
+  // Normalize fields so the frontend gets a consistent UserProfile structure
+  const normalized: any = {
+    ...data,
+    tenant_name: data.tenant,
+  };
+
+  if (data.user) {
+    normalized.username = data.user.username;
+    normalized.email = data.user.email;
+    normalized.first_name = data.user.first_name;
+    normalized.last_name = data.user.last_name;
+  } else {
+    // For Parent profile, split full_name into first_name and last_name
+    const fullName = data.full_name || "";
+    const parts = fullName.trim().split(/\s+/);
+    normalized.first_name = parts[0] || "";
+    normalized.last_name = parts.slice(1).join(" ") || "";
+    normalized.username = data.phone_number || "";
+    normalized.email = data.email || "";
+  }
+  
+  return normalized;
 }
 
 export const authApi = {
@@ -71,7 +94,19 @@ export const authApi = {
   /** Candidate + confirmed guardian-student links for the signed-in parent. */
   getGuardianLinks: async (): Promise<{ id: number; status: "pending" | "verified" | "rejected"; student: LinkedStudent }[]> => {
     const res = await httpClient.get("/api/guardian-links/");
-    return res.data?.results ?? res.data ?? [];
+    const rawLinks = res.data?.results ?? res.data ?? [];
+    return rawLinks.map((l: any) => ({
+      id: l.id,
+      status: l.status,
+      student: l.student ? {
+        id: l.student.id,
+        admission_no: l.student.admission_no,
+        first_name: l.student.user_detail?.first_name ?? l.student.first_name ?? "",
+        last_name: l.student.user_detail?.last_name ?? l.student.last_name ?? "",
+        class_section: l.student.class_section_name ?? l.student.class_section ?? "",
+        roll_no: l.student.roll_number ?? l.student.roll_no ?? "",
+      } : null
+    })).filter((l: any) => l.student !== null);
   },
 
   /** Confirm one or more phone-matched candidate students found during onboarding. */
