@@ -2,47 +2,67 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/shared/theme/colors";
-import { conductorApi, TodayRoute } from "../api/conductorApi";
+import { useAuthStore } from "@store/authStore";
+import { conductorApi, RouteStop, BusRouteInfo, BusTrip } from "../api/conductorApi";
 import { ROUTES } from "@/constants/route";
-
-const MOCK_ROUTE: TodayRoute = {
-  conductorName: "Conductor",
-  busLabel: "Bus 07",
-  routeName: "Shivaji Nagar – Line 3",
-  pickupLabel: "MORNING PICKUP · 7:30 AM",
-  expectedTotal: 38,
-  boardedTotal: 0,
-  stops: [
-    { name: "Datta Chowk", eta: "7:40 AM", expected: 9, boarded: 0 },
-    { name: "Sane Guruji Path", eta: "7:45 AM", expected: 7, boarded: 0 },
-    { name: "Vasant Vihar Gate", eta: "7:48 AM", expected: 11, boarded: 0 },
-    { name: "Ambedkar Udyan", eta: "7:53 AM", expected: 6, boarded: 0 },
-  ],
-};
 
 export const ConductorRouteScreen: React.FC = () => {
   const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const routeId = user?.conductor_profile?.bus_route_id ?? null;
+
   const [loading, setLoading] = useState(true);
-  const [route, setRoute] = useState<TodayRoute>(MOCK_ROUTE);
+  const [route, setRoute] = useState<BusRouteInfo | null>(null);
+  const [stops, setStops] = useState<RouteStop[]>([]);
+  const [expectedTotal, setExpectedTotal] = useState(0);
+  const [activeTrip, setActiveTrip] = useState<BusTrip | null>(null);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    conductorApi
-      .getTodayRoute()
-      .then(setRoute)
-      .catch(() => setRoute(MOCK_ROUTE)) // no backend endpoint yet — fall back to mock
-      .finally(() => setLoading(false));
-  }, []);
+    if (!routeId) {
+      setLoading(false);
+      return;
+    }
+    const load = async () => {
+      try {
+        const [routeInfo, routeStops, roster, trip] = await Promise.all([
+          conductorApi.getRoute(routeId),
+          conductorApi.getStops(routeId),
+          conductorApi.getRoster(routeId),
+          conductorApi.getActiveTrip(routeId),
+        ]);
+        setRoute(routeInfo);
+        setStops(routeStops);
+        setExpectedTotal(roster.length);
+        setActiveTrip(trip);
+      } catch (err) {
+        console.error("Failed to load conductor route:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [routeId]);
+
+  const goToScan = (trip: BusTrip) => {
+    router.push({
+      pathname: ROUTES.CONDUCTOR.SCAN,
+      params: { tripId: String(trip.id), routeId: String(routeId) },
+    });
+  };
 
   const handleStartTrip = async () => {
+    if (!routeId) return;
     setStarting(true);
     try {
-      await conductorApi.startTrip();
-    } catch {
-      // no backend endpoint yet — proceed with the scan flow regardless
+      const hour = new Date().getHours();
+      const tripType = hour < 14 ? "morning" : "evening";
+      const trip = await conductorApi.startTrip(routeId, tripType);
+      goToScan(trip);
+    } catch (err) {
+      console.error("Failed to start trip:", err);
     } finally {
       setStarting(false);
-      router.push(ROUTES.CONDUCTOR.SCAN);
     }
   };
 
@@ -54,15 +74,26 @@ export const ConductorRouteScreen: React.FC = () => {
     );
   }
 
+  if (!routeId) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.name}>No route assigned</Text>
+        <Text style={styles.meta}>Ask a School Admin to assign you to a bus route.</Text>
+      </View>
+    );
+  }
+
+  const conductorName = user?.first_name || user?.username || "Conductor";
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{route.conductorName.slice(0, 2).toUpperCase()}</Text>
+          <Text style={styles.avatarText}>{conductorName.slice(0, 2).toUpperCase()}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{route.conductorName}</Text>
-          <Text style={styles.meta}>Conductor · {route.busLabel}</Text>
+          <Text style={styles.name}>{conductorName}</Text>
+          <Text style={styles.meta}>Conductor · {route?.vehicle_number || "Bus"}</Text>
         </View>
         <View style={styles.onDutyBadge}>
           <Text style={styles.onDutyText}>ON DUTY</Text>
@@ -70,41 +101,37 @@ export const ConductorRouteScreen: React.FC = () => {
       </View>
 
       <View style={styles.tripCard}>
-        <Text style={styles.tripLabel}>{route.pickupLabel}</Text>
-        <Text style={styles.tripRoute}>{route.routeName}</Text>
+        <Text style={styles.tripLabel}>{activeTrip ? "TRIP IN PROGRESS" : "READY TO START"}</Text>
+        <Text style={styles.tripRoute}>{route?.name || "Route"}</Text>
         <View style={styles.statsRow}>
           <View>
-            <Text style={styles.statValue}>{route.stops.length}</Text>
+            <Text style={styles.statValue}>{stops.length}</Text>
             <Text style={styles.statLabel}>STOPS</Text>
           </View>
           <View>
-            <Text style={styles.statValue}>{route.expectedTotal}</Text>
+            <Text style={styles.statValue}>{expectedTotal}</Text>
             <Text style={styles.statLabel}>EXPECTED</Text>
           </View>
-          <View>
-            <Text style={[styles.statValue, { color: "#6EE7B7" }]}>{route.boardedTotal}</Text>
-            <Text style={styles.statLabel}>BOARDED</Text>
-          </View>
         </View>
-        <TouchableOpacity style={styles.startBtn} onPress={handleStartTrip} disabled={starting}>
-          {starting ? <ActivityIndicator color={COLORS.primaryDark} /> : <Text style={styles.startBtnText}>START TRIP</Text>}
+        <TouchableOpacity style={styles.startBtn} onPress={() => (activeTrip ? goToScan(activeTrip) : handleStartTrip())} disabled={starting}>
+          {starting ? <ActivityIndicator color={COLORS.primaryDark} /> : <Text style={styles.startBtnText}>{activeTrip ? "RESUME TRIP" : "START TRIP"}</Text>}
         </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionLabel}>STOPS · EXPECTED BOARDING</Text>
       <View style={styles.stopsList}>
-        {route.stops.map((s, idx) => (
-          <View key={s.name} style={styles.stopRow}>
+        {stops.map((s, idx) => (
+          <View key={s.id} style={styles.stopRow}>
             <View style={styles.stopDotCol}>
               <View style={styles.stopDot} />
-              {idx < route.stops.length - 1 && <View style={styles.stopLine} />}
+              {idx < stops.length - 1 && <View style={styles.stopLine} />}
             </View>
             <View style={styles.stopCard}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.stopName}>{s.name}</Text>
-                <Text style={styles.stopEta}>{s.eta}</Text>
+                {!!s.expected_time && <Text style={styles.stopEta}>{s.expected_time}</Text>}
               </View>
-              <Text style={styles.stopCount}>{s.expected}</Text>
+              <Text style={styles.stopCount}>{s.expected_count}</Text>
               <Text style={styles.stopCountLabel}>KIDS</Text>
             </View>
           </View>

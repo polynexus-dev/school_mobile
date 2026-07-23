@@ -1,4 +1,5 @@
 export * from "./api/parentApi";
+export * from "./api/feesApi";
 export * from "./components/ChildSwitcher";
 export * from "./screens/HomeDashboardScreen";
 export * from "./screens/BusTabScreen";

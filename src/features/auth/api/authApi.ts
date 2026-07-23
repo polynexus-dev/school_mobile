@@ -15,6 +15,12 @@ interface LoginResult extends TokenResponse {
   profile: UserProfile;
 }
 
+export interface GuardianOtpRequestResponse {
+  message: string;
+  tenant_schema?: string | null;
+  tenant_code?: string | null;
+}
+
 async function fetchProfileWithToken(access: string, tenantSchema?: string | null): Promise<UserProfile> {
   const res = await httpClient.get("/api/profile/", {
     headers: {
@@ -34,18 +40,32 @@ export const authApi = {
     return { access, refresh, tenant_domain, tenant_schema, profile };
   },
 
-  /** Parent onboarding step 1: request a 6-digit OTP against the invited phone number. */
-  requestParentOtp: async (phone: string): Promise<{ message: string }> => {
-    const res = await httpClient.post("/api/parent/otp/request/", { phone });
+  /**
+   * Parent onboarding step 1: request a 6-digit email OTP for the guardian
+   * matched by phone number or email. The response carries the resolved
+   * `tenant_schema` (the backend searches every tenant to find the guardian,
+   * since the client doesn't know which school it is yet) — that value must
+   * be threaded through to `verifyParentOtp`, which requires it.
+   */
+  requestParentOtp: async (identifier: string, tenantSchema?: string): Promise<GuardianOtpRequestResponse> => {
+    const res = await httpClient.post<GuardianOtpRequestResponse>("/api/guardian/otp/request/", {
+      identifier,
+      ...(tenantSchema ? { tenant_schema: tenantSchema } : {}),
+    });
     return res.data;
   },
 
   /** Parent onboarding step 2: verify the OTP, receive JWT + resolved tenant. */
-  verifyParentOtp: async (phone: string, otp: string): Promise<LoginResult> => {
-    const tokenRes = await httpClient.post<TokenResponse>("/api/parent/otp/verify/", { phone, otp });
-    const { access, refresh, tenant_domain, tenant_schema } = tokenRes.data;
-    const profile = await fetchProfileWithToken(access, tenant_schema);
-    return { access, refresh, tenant_domain, tenant_schema, profile };
+  verifyParentOtp: async (identifier: string, code: string, tenantSchema: string): Promise<LoginResult> => {
+    const tokenRes = await httpClient.post<TokenResponse>("/api/guardian/otp/verify/", {
+      identifier,
+      code,
+      tenant_schema: tenantSchema,
+    });
+    const { access, refresh, tenant_schema } = tokenRes.data;
+    const resolvedSchema = tenant_schema ?? tenantSchema;
+    const profile = await fetchProfileWithToken(access, resolvedSchema);
+    return { access, refresh, tenant_domain: null, tenant_schema: resolvedSchema, profile };
   },
 
   /** Candidate + confirmed guardian-student links for the signed-in parent. */

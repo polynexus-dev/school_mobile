@@ -9,6 +9,7 @@ export default function TeacherLayout() {
       <Stack.Screen name="corrections" />
       <Stack.Screen name="quick-create" />
       <Stack.Screen name="marks-entry" />
+      <Stack.Screen name="notifications" />
     </Stack>
   );
 }

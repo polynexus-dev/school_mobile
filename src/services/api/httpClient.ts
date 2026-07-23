@@ -74,7 +74,7 @@ httpClient.interceptors.response.use(
     // Handle session expiry / token invalidation
     if (statusCode === 401) {
       const isLoginRequest =
-        endpoint.includes("/api/token/") || endpoint.includes("/api/parent/otp/");
+        endpoint.includes("/api/token/") || endpoint.includes("/api/guardian/otp/");
       if (!isLoginRequest) {
         try {
           await useAuthStore.getState().logout();

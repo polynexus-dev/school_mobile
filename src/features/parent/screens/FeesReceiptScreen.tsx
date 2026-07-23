@@ -1,11 +1,20 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { COLORS } from "@/shared/theme/colors";
 import { ROUTES } from "@/constants/route";
 
+// Reached once a real checkout SDK calls feesApi.verifyCheckout() and
+// navigates here with the resulting FeePayment fields as params.
 export const FeesReceiptScreen: React.FC = () => {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    receiptNumber?: string;
+    invoiceNumber?: string;
+    amount?: string;
+    method?: string;
+    transactionRef?: string;
+  }>();
 
   return (
     <View style={styles.container}>
@@ -14,31 +23,34 @@ export const FeesReceiptScreen: React.FC = () => {
           <Text style={styles.successCheck}>✓</Text>
         </View>
         <Text style={styles.successTitle}>Payment successful</Text>
-        <Text style={styles.successSubtitle}>₹12,500 paid via UPI</Text>
+        <Text style={styles.successSubtitle}>
+          {params.amount ? `₹${Number(params.amount).toLocaleString("en-IN")} paid` : "Payment confirmed"}
+          {params.method ? ` via ${params.method}` : ""}
+        </Text>
       </View>
 
       <View style={styles.receiptCard}>
         <View style={styles.receiptHeader}>
           <Text style={styles.receiptTitle}>Fee Receipt</Text>
-          <Text style={styles.receiptNumber}>RCP-2627-1094</Text>
+          <Text style={styles.receiptNumber}>{params.receiptNumber || "—"}</Text>
         </View>
         <View style={styles.receiptRows}>
           <View style={styles.receiptRow}>
             <Text style={styles.receiptLabel}>Invoice</Text>
-            <Text style={styles.receiptValue}>INV-2627-0451 · Term 2 Tuition</Text>
+            <Text style={styles.receiptValue}>{params.invoiceNumber || "—"}</Text>
           </View>
           <View style={styles.receiptRow}>
             <Text style={styles.receiptLabel}>Method</Text>
-            <Text style={styles.receiptValue}>UPI</Text>
+            <Text style={styles.receiptValue}>{params.method || "—"}</Text>
           </View>
           <View style={styles.receiptRow}>
             <Text style={styles.receiptLabel}>Transaction ID</Text>
-            <Text style={styles.receiptValue}>pay_QxT48hzR2mKe1A</Text>
+            <Text style={styles.receiptValue}>{params.transactionRef || "—"}</Text>
           </View>
         </View>
         <View style={styles.receiptTotalRow}>
           <Text style={styles.receiptLabel}>Amount paid</Text>
-          <Text style={styles.receiptTotal}>₹12,500</Text>
+          <Text style={styles.receiptTotal}>{params.amount ? `₹${Number(params.amount).toLocaleString("en-IN")}` : "—"}</Text>
         </View>
       </View>
 

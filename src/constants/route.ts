@@ -17,6 +17,7 @@ export const ROUTES = {
     CORRECTIONS: "/(teacher)/corrections" as const,
     QUICK_CREATE: "/(teacher)/quick-create" as const,
     MARKS_ENTRY: "/(teacher)/marks-entry" as const,
+    NOTIFICATIONS: "/(teacher)/notifications" as const,
   },
   PARENT: {
     DASHBOARD: "/(parent)/(tabs)/dashboard" as const,
@@ -34,6 +35,7 @@ export const ROUTES = {
     ANNOUNCEMENTS: "/(parent)/announcements" as const,
     PRIVACY_CONSENT: "/(parent)/privacy-consent" as const,
     LANGUAGE: "/(parent)/settings/language" as const,
+    NOTIFICATIONS: "/(parent)/notifications" as const,
   },
   CONDUCTOR: {
     ROUTE: "/(conductor)/route" as const,

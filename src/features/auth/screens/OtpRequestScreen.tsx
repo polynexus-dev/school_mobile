@@ -34,8 +34,11 @@ export const OtpRequestScreen: React.FC = () => {
     }
     setLoading(true);
     try {
-      await authApi.requestParentOtp(trimmed);
-      router.push({ pathname: ROUTES.AUTH.OTP_VERIFY, params: { phone: trimmed } });
+      const res = await authApi.requestParentOtp(trimmed);
+      router.push({
+        pathname: ROUTES.AUTH.OTP_VERIFY,
+        params: { phone: trimmed, tenantSchema: res.tenant_schema ?? "" },
+      });
     } catch (err: any) {
       Alert.alert("Couldn't send code", err.message || "This number isn't linked to any student yet.");
     } finally {

@@ -22,8 +22,9 @@ const RESEND_SECONDS = 30;
 
 export const OtpVerifyScreen: React.FC = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone?: string }>();
+  const params = useLocalSearchParams<{ phone?: string; tenantSchema?: string }>();
   const phone = params.phone ?? "";
+  const tenantSchema = params.tenantSchema ?? "";
 
   const setAuth = useAuthStore((state) => state.setAuth);
   const setSchoolDomain = useAuthStore((state) => state.setSchoolDomain);
@@ -65,10 +66,14 @@ export const OtpVerifyScreen: React.FC = () => {
       setError("Enter the full 6-digit code.");
       return;
     }
+    if (!tenantSchema) {
+      setError("Session expired — please request a new code.");
+      return;
+    }
     setVerifying(true);
     setError("");
     try {
-      const result = await authApi.verifyParentOtp(phone, otp);
+      const result = await authApi.verifyParentOtp(phone, otp, tenantSchema);
       await setSchoolDomain(result.tenant_domain ?? null);
       await setSchoolSchema(result.tenant_schema ?? null);
       await setAuth(result.profile, result.access);
@@ -97,7 +102,7 @@ export const OtpVerifyScreen: React.FC = () => {
     if (secondsLeft > 0 || !phone) return;
     setResending(true);
     try {
-      await authApi.requestParentOtp(phone);
+      await authApi.requestParentOtp(phone, tenantSchema || undefined);
       setSecondsLeft(RESEND_SECONDS);
       setDigits(Array(OTP_LENGTH).fill(""));
     } catch (err: any) {
@@ -191,7 +196,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     marginTop: 6,
-    marginBottom: 22,
+    marginBottom: 16,
     lineHeight: 21,
   },
   bold: {

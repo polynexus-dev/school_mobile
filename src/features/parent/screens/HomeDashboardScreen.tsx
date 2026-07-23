@@ -8,6 +8,7 @@ import { useAuthStore } from "@store/authStore";
 import { parentApi, AnnouncementItem, AttendanceEntry } from "../api/parentApi";
 import { ChildSwitcher } from "../components/ChildSwitcher";
 import { ROUTES } from "@/constants/route";
+import { notificationApi } from "@/features/notifications";
 
 function initials(first?: string, last?: string) {
   return `${(first?.[0] ?? "").toUpperCase()}${(last?.[0] ?? "").toUpperCase()}` || "?";
@@ -31,6 +32,7 @@ export const HomeDashboardScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [attendancePct, setAttendancePct] = useState<number | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const activeStudent = students.find((s) => s.id === activeStudentId) ?? students[0];
 
@@ -50,6 +52,10 @@ export const HomeDashboardScreen: React.FC = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    notificationApi.getUnreadCount().then(setUnreadCount).catch((err) => console.error("Failed to load unread count:", err));
+  }, []);
 
   useEffect(() => {
     if (!activeStudent) return;
@@ -84,8 +90,13 @@ export const HomeDashboardScreen: React.FC = () => {
                 </View>
               ))}
           <View style={{ flex: 1 }} />
-          <TouchableOpacity style={styles.bellBtn} onPress={() => router.push(ROUTES.PARENT.BUS_ALERTS)}>
+          <TouchableOpacity style={styles.bellBtn} onPress={() => router.push(ROUTES.PARENT.NOTIFICATIONS)}>
             <Ionicons name="notifications-outline" size={18} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -210,6 +221,8 @@ const styles = StyleSheet.create({
   },
   secondaryAvatarText: { color: "rgba(255,255,255,0.8)", fontWeight: "700", fontSize: 11 },
   bellBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  bellBadge: { position: "absolute", top: -3, right: -3, minWidth: 16, height: 16, paddingHorizontal: 3, borderRadius: 8, backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: COLORS.primaryDark },
+  bellBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
   heroTextBlock: { marginTop: 18 },
   heroDate: { color: "rgba(255,255,255,0.7)", fontSize: 13 },
   heroGreeting: { color: "#fff", fontWeight: "700", fontSize: 21, marginTop: 2 },

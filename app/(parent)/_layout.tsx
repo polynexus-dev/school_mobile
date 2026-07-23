@@ -12,6 +12,7 @@ export default function ParentLayout() {
       <Stack.Screen name="results" />
       <Stack.Screen name="homework" />
       <Stack.Screen name="announcements" />
+      <Stack.Screen name="notifications" />
       <Stack.Screen name="privacy-consent" />
       <Stack.Screen name="settings" />
     </Stack>

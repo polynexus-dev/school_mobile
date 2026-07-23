@@ -10,6 +10,7 @@ export interface LinkedStudent {
   last_name?: string;
   class_section: string; // e.g. "7-A"
   roll_no?: string | number;
+  bus_route?: number | null; // FK id on StudentProfile — used to subscribe to live bus tracking
 }
 
 export interface UserProfile {
