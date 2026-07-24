@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "CampusNexus School",
-    "slug": "campusnexus-school",
-    "scheme": "campusnexus-school",
+    "name": "VIDYUM School",
+    "slug": "vidyum-school",
+    "scheme": "vidyum-school",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "in.polynexus.campusnexusschool"
+      "package": "in.polynexus.vidyumschool"
     },
     "web": {
       "favicon": "./assets/favicon.png"

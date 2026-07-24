@@ -115,7 +115,7 @@ export const ConsentScreen: React.FC = () => {
           <Text style={styles.checkboxLabel}>
             I hereby give clear, unconditional, and informed consent to {user?.tenant_name || "my school"} and
             its technology partner, Polynexus Technologies, to process my personal data through the
-            CampusNexus platform for school ERP services.
+            VIDYUM platform for school ERP services.
           </Text>
         </TouchableOpacity>
 

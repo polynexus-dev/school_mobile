@@ -151,7 +151,7 @@ export const LoginScreen: React.FC = () => {
             />
           </View>
           <Text className="text-3xl font-extrabold text-white tracking-wider">
-            Campus<Text className="text-violet-300">Nexus</Text>
+            VIDYUM
           </Text>
           <Text className="text-sm text-white/70 mt-1.5 font-semibold tracking-wide">
             School Edition
