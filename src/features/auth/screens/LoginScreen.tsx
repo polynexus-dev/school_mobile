@@ -75,13 +75,13 @@ export const LoginScreen: React.FC = () => {
     try {
       const result = await authApi.login(username, password);
 
-      // Students use the Vidyum web portal, not this app — block before any
+      // Students use the Vidyam web portal, not this app — block before any
       // auth state is set so a student credential never actually starts a
       // mobile session (deliberate product decision, not a missing feature).
       if (result.profile.role?.toString().toLowerCase() === "student") {
         Alert.alert(
           "Use the Web Portal",
-          "Student accounts sign in through the Vidyum web portal in your browser, not this app. Ask your school for the portal link."
+          "Student accounts sign in through the Vidyam web portal in your browser, not this app. Ask your school for the portal link."
         );
         setLoading(false);
         return;
@@ -164,7 +164,7 @@ export const LoginScreen: React.FC = () => {
             />
           </View>
           <Text className="text-3xl font-extrabold text-white tracking-wider">
-            VIDYUM
+            VIDYAM
           </Text>
           <Text className="text-sm text-white/70 mt-1.5 font-semibold tracking-wide">
             School Edition

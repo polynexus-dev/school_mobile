@@ -1,5 +1,5 @@
 export const COLORS = {
-  // Brand Colors — VIDYUM School Edition violet system
+  // Brand Colors — VIDYAM School Edition violet system
   primary: "#6D28D9",       // School Edition primary violet
   primaryDark: "#3B0764",   // Deepest shade, sidebar/hero gradients, pressed states
   secondary: "#7C3AED",     // Light accent violet

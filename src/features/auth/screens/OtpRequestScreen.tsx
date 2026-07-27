@@ -50,7 +50,7 @@ export const OtpRequestScreen: React.FC = () => {
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Welcome to{"\n"}VIDYUM School</Text>
+        <Text style={styles.heroTitle}>Welcome to{"\n"}VIDYAM School</Text>
         <Text style={styles.heroSubtitle}>Powered by Polynexus</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
