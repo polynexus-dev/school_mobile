@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { COLORS } from "@/shared/theme/colors";
-import { teacherApi, ClassSection } from "../api/teacherApi";
+import { teacherApi, ClassSection, Subject } from "../api/teacherApi";
 
 type PostType = "homework" | "announcement";
 
@@ -13,6 +13,8 @@ export const QuickCreateScreen: React.FC = () => {
 
   const [sections, setSections] = useState<ClassSection[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -20,13 +22,27 @@ export const QuickCreateScreen: React.FC = () => {
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
+    // mine: true — this screen posts homework/announcements as this
+    // teacher, so the chip list (and its default selection) must be scoped
+    // to classes they're actually assigned to, unlike the dashboard's
+    // optional "view all classes" toggle for Head Masters. Omitting this
+    // param let the default selection land on a class outside the
+    // teacher's own assignment, which silently 403'd the (real,
+    // ownership-checked) Homework post.
     teacherApi
-      .getMyClassSections()
+      .getMyClassSections({ mine: true })
       .then((data) => {
         setSections(data);
         if (data[0]) setSelectedIds([data[0].id]);
       })
       .catch((err) => console.error("Failed to load class sections:", err));
+    // No "my subjects" endpoint exists — /api/subjects/ is the whole
+    // school's list, not scoped to this teacher, so there's no safe default
+    // to guess here (unlike class_sections above). Leave unselected and
+    // require an explicit pick; the ownership check server-side rejects
+    // the wrong subject anyway, but a silent wrong default is worse UX
+    // than an empty required field.
+    teacherApi.getSubjects().then(setSubjects).catch((err) => console.error("Failed to load subjects:", err));
   }, []);
 
   const toggleSection = (id: number) => {
@@ -43,29 +59,37 @@ export const QuickCreateScreen: React.FC = () => {
       return;
     }
 
-    if (postType === "homework") {
-      // TODO(follow-up): the given REST contract has no Homework endpoint yet
-      // (see backend plan's Homework model). Announcement posting below is
-      // real; this branch is a placeholder until that model ships.
-      Alert.alert(
-        "Saved locally (preview only)",
-        "Homework posting isn't wired to the backend yet — this class+details layout is ready for when the Homework API ships."
-      );
-      router.back();
+    if (postType === "homework" && !dueDate.trim()) {
+      Alert.alert("Due date required", "Please add a due date for this homework.");
+      return;
+    }
+    if (postType === "homework" && !selectedSubjectId) {
+      Alert.alert("Pick a subject", "Select which subject this homework is for.");
       return;
     }
 
     setPublishing(true);
     try {
-      await teacherApi.postAnnouncement({
-        title: title.trim(),
-        body: details.trim(),
-        class_sections: selectedIds,
-        category: "announcement",
-        due_date: dueDate || null,
-        notify,
-      });
-      Alert.alert("Published", "Your announcement has been posted.", [{ text: "OK", onPress: () => router.back() }]);
+      if (postType === "homework") {
+        await teacherApi.postHomework({
+          title: title.trim(),
+          details: details.trim(),
+          class_sections: selectedIds,
+          subject: selectedSubjectId as number,
+          due_date: dueDate.trim(),
+        });
+        Alert.alert("Posted", "Homework has been posted.", [{ text: "OK", onPress: () => router.back() }]);
+      } else {
+        await teacherApi.postAnnouncement({
+          title: title.trim(),
+          body: details.trim(),
+          class_sections: selectedIds,
+          category: "announcement",
+          due_date: dueDate || null,
+          notify,
+        });
+        Alert.alert("Published", "Your announcement has been posted.", [{ text: "OK", onPress: () => router.back() }]);
+      }
     } catch (err: any) {
       Alert.alert("Couldn't publish", err.message || "Please try again.");
     } finally {
@@ -115,6 +139,23 @@ export const QuickCreateScreen: React.FC = () => {
             ))}
           </View>
         </View>
+
+        {postType === "homework" && (
+          <View>
+            <Text style={styles.label}>SUBJECT</Text>
+            <View style={styles.chipRow}>
+              {subjects.map((s) => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={[styles.chip, selectedSubjectId === s.id && styles.chipOn]}
+                  onPress={() => setSelectedSubjectId(s.id)}
+                >
+                  <Text style={[styles.chipText, selectedSubjectId === s.id && styles.chipTextOn]}>{s.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View>
           <Text style={styles.label}>TITLE</Text>

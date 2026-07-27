@@ -7,13 +7,16 @@ import { COLORS } from "@/shared/theme/colors";
 import { StatusBar } from "expo-status-bar";
 import { ROUTES } from "@/constants/route";
 
-const ROLE_GROUP: Record<UserRole, string> = {
+// Partial: "student" deliberately has no entry (see authStore's UserRole
+// comment) — the existing `if (!homeRoute || !roleGroup)` guard below
+// already handles an unmapped role safely.
+const ROLE_GROUP: Partial<Record<UserRole, string>> = {
   teacher: "(teacher)",
   parent: "(parent)",
   conductor: "(conductor)",
 };
 
-const ROLE_HOME: Record<UserRole, string> = {
+const ROLE_HOME: Partial<Record<UserRole, string>> = {
   teacher: ROUTES.TEACHER.DASHBOARD,
   parent: ROUTES.PARENT.DASHBOARD,
   conductor: ROUTES.CONDUCTOR.ROUTE,

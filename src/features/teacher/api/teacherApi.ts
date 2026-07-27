@@ -1,5 +1,10 @@
 import httpClient from "@services/api/httpClient";
 
+export interface Subject {
+  id: number;
+  name: string;
+}
+
 export interface ClassSection {
   id: number;
   name: string; // e.g. "7-A"
@@ -30,6 +35,31 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
 }
 
+export interface BatchRecognitionMatch {
+  student_id: number;
+  name: string | null;
+  admission_no: string | null;
+  matched_angle: string;
+  score: number;
+}
+
+export interface BatchRecognitionMissingStudent {
+  student_id: number;
+  name: string | null;
+  admission_no: string | null;
+}
+
+export interface BatchRecognitionResult {
+  status: "ok" | "no_face_detected" | "no_registered_faces";
+  message?: string;
+  faces_detected?: number;
+  faces_embedded?: number;
+  matched_count?: number;
+  matches: BatchRecognitionMatch[];
+  unmatched_faces?: number;
+  missing_students: BatchRecognitionMissingStudent[];
+}
+
 export const teacherApi = {
   /**
    * The REST contract only exposes GET/POST /api/class-sections/, with no
@@ -45,6 +75,11 @@ export const teacherApi = {
       ...cs,
       name: cs.grade && cs.section ? `${cs.grade}-${cs.section}` : (cs.display_name?.replace(/^Class\s+/i, "") || ""),
     }));
+  },
+
+  getSubjects: async (): Promise<Subject[]> => {
+    const res = await httpClient.get("/api/subjects/");
+    return res.data?.results ?? res.data ?? [];
   },
 
   getRoster: async (classSectionId: number): Promise<RosterStudent[]> => {
@@ -63,6 +98,26 @@ export const teacherApi = {
     return res.data;
   },
 
+  /**
+   * One classroom photo, matched against every registered FaceEmbedding for
+   * the class — the backend (BatchClassroomRecognitionView) writes real
+   * Attendance rows for every confident match itself (status=present,
+   * verification_method=face) via update_or_create, so calling this again
+   * for the same photo/day is safe. Only students it couldn't match come
+   * back in `missing_students` for the teacher to confirm manually.
+   */
+  batchRecognizeAttendance: async (classSectionId: number, imageUri: string, date?: string): Promise<BatchRecognitionResult> => {
+    const formData = new FormData();
+    formData.append("class_section", String(classSectionId));
+    if (date) formData.append("date", date);
+    // React Native's FormData "file" shape — not a real DOM File object.
+    formData.append("image", { uri: imageUri, name: "classroom.jpg", type: "image/jpeg" } as unknown as Blob);
+    const res = await httpClient.post("/api/attendance/batch-recognize/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
+
   /** Publishes a homework/announcement post to a set of class-sections. */
   postAnnouncement: async (payload: {
     title: string;
@@ -72,8 +127,45 @@ export const teacherApi = {
     due_date?: string | null;
     notify: boolean;
   }) => {
-    const res = await httpClient.post("/api/announcements/", payload);
+    // Announcement's real model fields are content/target_class_sections/
+    // push_notification/audience_type (school_app/models/announcements.py)
+    // — this used to send body/class_sections/category/notify and 400 on
+    // every single publish attempt.
+    const res = await httpClient.post("/api/announcements/", {
+      title: payload.title,
+      content: payload.body,
+      target_class_sections: payload.class_sections,
+      audience_type: "class",
+      push_notification: payload.notify,
+    });
     return res.data;
+  },
+
+  /**
+   * Homework's real model (school_app/models/academics.py Homework) is one
+   * record per class_section — POST academics/homework/ once per selected
+   * class, unlike postAnnouncement which takes a single target_class_sections
+   * array.
+   */
+  postHomework: async (payload: {
+    title: string;
+    details: string;
+    class_sections: number[];
+    subject: number;
+    due_date: string;
+  }) => {
+    const results = await Promise.all(
+      payload.class_sections.map((classSectionId) =>
+        httpClient.post("/api/academics/homework/", {
+          class_section: classSectionId,
+          subject: payload.subject,
+          title: payload.title,
+          description: payload.details,
+          due_date: payload.due_date,
+        })
+      )
+    );
+    return results.map((r) => r.data);
   },
 
   getPendingCorrectionsCount: async (): Promise<number> => {

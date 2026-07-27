@@ -74,6 +74,19 @@ export const LoginScreen: React.FC = () => {
 
     try {
       const result = await authApi.login(username, password);
+
+      // Students use the Vidyum web portal, not this app — block before any
+      // auth state is set so a student credential never actually starts a
+      // mobile session (deliberate product decision, not a missing feature).
+      if (result.profile.role?.toString().toLowerCase() === "student") {
+        Alert.alert(
+          "Use the Web Portal",
+          "Student accounts sign in through the Vidyum web portal in your browser, not this app. Ask your school for the portal link."
+        );
+        setLoading(false);
+        return;
+      }
+
       await setSchoolDomain(result.tenant_domain ?? null);
       await setSchoolSchema(result.tenant_schema ?? null);
       await setAuth(result.profile, result.access);

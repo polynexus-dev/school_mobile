@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { storage } from "@services/storage/secureStore";
 
-export type UserRole = "teacher" | "parent" | "conductor";
+// "student" is intentionally not a navigable role here — students use the
+// web portal, not this app. It stays in the union only so LoginScreen can
+// type-check its block-on-login comparison against a real backend value.
+export type UserRole = "teacher" | "parent" | "conductor" | "student";
 
 export interface LinkedStudent {
   id: number;
@@ -9,6 +12,7 @@ export interface LinkedStudent {
   first_name: string;
   last_name?: string;
   class_section: string; // e.g. "7-A"
+  class_section_id?: number | null; // FK id on StudentProfile — used to query class-scoped data like Homework
   roll_no?: string | number;
   bus_route?: number | null; // FK id on StudentProfile — used to subscribe to live bus tracking
 }

@@ -10,7 +10,14 @@ function initials(first?: string, last?: string) {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  // toISOString() converts to UTC, which rolls over to the previous
+  // calendar day during early-morning hours in IST (UTC+5:30) — attendance
+  // must key off the device's local calendar day, not UTC.
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export const MarkAttendanceScreen: React.FC = () => {
@@ -94,15 +101,32 @@ export const MarkAttendanceScreen: React.FC = () => {
 
   const handleManualSubmit = () => doSubmit(statuses);
 
-  const handleFaceSubmit = (recognizedIds: number[]) => {
-    // Simulated recognition result: everyone the "camera" matched is present,
-    // anyone not recognized falls back to absent pending manual confirmation.
-    const next: Record<number, AttendanceStatus> = {};
-    roster.forEach((s) => {
-      next[s.id] = recognizedIds.includes(s.id) ? "present" : "absent";
-    });
-    setStatuses(next);
-    doSubmit(next);
+  const handleScan = (imageUri: string) => teacherApi.batchRecognizeAttendance(classSectionId, imageUri, todayStr());
+
+  // Face-matched students are already written server-side by the batch-
+  // recognition endpoint itself — this only needs to submit the (usually
+  // short) subset the scan couldn't confidently match.
+  const handleFinishScan = async (missingStatuses: Record<number, AttendanceStatus>) => {
+    const entries = Object.entries(missingStatuses);
+    if (entries.length === 0) {
+      Alert.alert("Attendance recorded", `${className} attendance recorded for today.`, [{ text: "Done", onPress: () => router.back() }]);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const records = entries.map(([studentId, status]) => ({
+        student: Number(studentId),
+        class_section: classSectionId,
+        date: todayStr(),
+        status,
+      }));
+      await teacherApi.submitAttendance(records);
+      Alert.alert("Attendance recorded", `${className} attendance recorded for today.`, [{ text: "Done", onPress: () => router.back() }]);
+    } catch (err: any) {
+      Alert.alert("Submission failed", err.message || "Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (mode === "face") {
@@ -111,7 +135,8 @@ export const MarkAttendanceScreen: React.FC = () => {
         roster={roster}
         submitting={submitting}
         onCancel={() => setMode("manual")}
-        onSubmit={handleFaceSubmit}
+        onScan={handleScan}
+        onFinish={handleFinishScan}
       />
     );
   }

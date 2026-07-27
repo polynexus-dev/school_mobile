@@ -21,6 +21,15 @@ export interface AnnouncementItem {
   created_at: string;
 }
 
+export interface HomeworkItem {
+  id: number;
+  class_section: number;
+  subject: number;
+  title: string;
+  description?: string;
+  due_date: string; // YYYY-MM-DD
+}
+
 export const parentApi = {
   /** Linked children for the signed-in guardian (backend scopes this by the requesting user). */
   getMyChildren: async (): Promise<LinkedStudent[]> => {
@@ -32,6 +41,7 @@ export const parentApi = {
       first_name: s.user_detail?.first_name ?? s.first_name ?? "",
       last_name: s.user_detail?.last_name ?? s.last_name ?? "",
       class_section: s.class_section_name ?? s.class_section ?? "",
+      class_section_id: typeof s.class_section === "number" ? s.class_section : null,
       roll_no: s.roll_number ?? s.roll_no ?? "",
     }));
   },
@@ -45,6 +55,15 @@ export const parentApi = {
 
   getAnnouncements: async (): Promise<AnnouncementItem[]> => {
     const res = await httpClient.get("/api/announcements/");
+    const raw = res.data?.results ?? res.data ?? [];
+    // Announcement's real model field is `content`, not `body` — this was
+    // rendering blank announcement text on screen since the API response
+    // never actually had a `.body` key.
+    return raw.map((a: any) => ({ ...a, body: a.content ?? a.body ?? "" }));
+  },
+
+  getHomework: async (classSectionId: number): Promise<HomeworkItem[]> => {
+    const res = await httpClient.get("/api/academics/homework/", { params: { class_section: classSectionId } });
     return res.data?.results ?? res.data ?? [];
   },
 };

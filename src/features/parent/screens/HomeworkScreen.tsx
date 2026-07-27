@@ -1,60 +1,61 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { COLORS } from "@/shared/theme/colors";
+import { useAuthStore } from "@store/authStore";
 import { ChildSwitcher } from "../components/ChildSwitcher";
+import { parentApi, HomeworkItem } from "../api/parentApi";
 
 /**
- * Homework — SCAFFOLD, mock data. No Homework endpoint in this pass's
- * contract yet (see backend plan's Homework model). Read-only by design:
- * submissions are handled in class, not on the app.
+ * Homework — real GET /api/academics/homework/?class_section=, one record
+ * per class (not per student). Read-only by design: the model has no
+ * submission/completion tracking, so unlike the old mock this doesn't
+ * pretend to show a "submitted" status or completion percentage.
  */
-interface HomeworkItem {
-  id: number;
-  subject: string;
-  tagColor: string;
-  title: string;
-  meta: string;
-  status: "pending" | "submitted";
-}
-
-const ITEMS: HomeworkItem[] = [
-  { id: 1, subject: "MATHEMATICS", tagColor: "#5B21B6", title: "Exercise 5.2 — Fractions word problems", meta: "Due tomorrow, 15 Jul · Assigned by Mr. Kulkarni", status: "pending" },
-  { id: 2, subject: "SCIENCE", tagColor: "#0E7490", title: "Diagram: parts of a flower + labels", meta: "Due Thu, 17 Jul · Assigned by Mrs. Iyer", status: "pending" },
-  { id: 3, subject: "ENGLISH", tagColor: "#BE185D", title: 'Book review — "The Blue Umbrella"', meta: "Submitted 13 Jul · Checked by Ms. D'Souza", status: "submitted" },
-  { id: 4, subject: "HINDI", tagColor: "#5B21B6", title: "निबंध — मेरा प्रिय त्योहार", meta: "Submitted 11 Jul · Checked by Mrs. Verma", status: "submitted" },
-];
-
 export const HomeworkScreen: React.FC = () => {
-  const pending = ITEMS.filter((i) => i.status === "pending").length;
+  const students = useAuthStore((state) => state.students);
+  const activeStudentId = useAuthStore((state) => state.activeStudentId);
+  const activeStudent = students.find((s) => s.id === activeStudentId) ?? students[0];
+
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<HomeworkItem[]>([]);
+
+  const load = useCallback(async () => {
+    if (!activeStudent?.class_section_id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await parentApi.getHomework(activeStudent.class_section_id);
+      setItems(data);
+    } catch (err) {
+      console.error("Failed to load homework:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeStudent?.class_section_id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <ScreenWrapper title="Homework" showHeader showBack scrollable right={<ChildSwitcher />} contentContainerStyle={styles.content}>
-      <Text style={styles.subtitle}>Read-only view · submissions are handled in class</Text>
+      <Text style={styles.subtitle}>Checked in class · no online submission</Text>
 
-      {ITEMS.map((item) => (
-        <View
-          key={item.id}
-          style={[styles.card, { borderLeftColor: item.status === "pending" ? COLORS.warning : COLORS.success }, item.status === "submitted" && styles.cardMuted]}
-        >
-          <View style={styles.cardTop}>
-            <View style={[styles.tag, { backgroundColor: `${item.tagColor}15` }]}>
-              <Text style={[styles.tagText, { color: item.tagColor }]}>{item.subject}</Text>
-            </View>
-            <Text style={[styles.status, item.status === "pending" ? styles.statusPending : styles.statusSubmitted]}>
-              {item.status === "pending" ? "PENDING" : "SUBMITTED ✓"}
-            </Text>
+      {loading && <ActivityIndicator color={COLORS.primary} style={{ marginTop: 24 }} />}
+
+      {!loading && items.length === 0 && <Text style={styles.emptyText}>No homework posted yet.</Text>}
+
+      {!loading &&
+        items.map((item) => (
+          <View key={item.id} style={styles.card}>
+            <Text style={styles.title}>{item.title}</Text>
+            {!!item.description && <Text style={styles.description}>{item.description}</Text>}
+            <Text style={styles.meta}>Due {item.due_date}</Text>
           </View>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.meta}>{item.meta}</Text>
-        </View>
-      ))}
-
-      <View style={styles.footNote}>
-        <Text style={styles.footNoteText}>
-          {pending} pending · class average completion this week is 91%
-        </Text>
-      </View>
+        ))}
     </ScreenWrapper>
   );
 };
@@ -62,18 +63,11 @@ export const HomeworkScreen: React.FC = () => {
 const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 30, gap: 11 },
   subtitle: { fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 4 },
-  card: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 16, borderLeftWidth: 4, shadowColor: "#1C0A4A", shadowOpacity: 0.05, shadowRadius: 12 },
-  cardMuted: { opacity: 0.8 },
-  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  tag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  tagText: { fontSize: 11, fontWeight: "700" },
-  status: { fontSize: 11.5, fontWeight: "700" },
-  statusPending: { color: "#B45309" },
-  statusSubmitted: { color: "#047857" },
-  title: { fontSize: 14.5, fontWeight: "600", color: COLORS.text, marginTop: 9 },
-  meta: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
-  footNote: { backgroundColor: "#F5F3FF", borderRadius: 16, padding: 14 },
-  footNoteText: { fontSize: 12.5, color: "#5B21B6", lineHeight: 18 },
+  emptyText: { textAlign: "center", color: COLORS.textMuted, marginTop: 30 },
+  card: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 16, shadowColor: "#1C0A4A", shadowOpacity: 0.05, shadowRadius: 12 },
+  title: { fontSize: 14.5, fontWeight: "600", color: COLORS.text },
+  description: { fontSize: 12.5, color: COLORS.textSecondary, marginTop: 6, lineHeight: 18 },
+  meta: { fontSize: 12, color: COLORS.textSecondary, marginTop: 8, fontWeight: "600" },
 });
 
 export default HomeworkScreen;
