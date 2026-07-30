@@ -1,4 +1,6 @@
 import httpClient from "@services/api/httpClient";
+import { Platform } from "react-native";
+
 
 export interface Subject {
   id: number;
@@ -99,8 +101,15 @@ export const teacherApi = {
 
   getRoster: async (classSectionId: number): Promise<RosterStudent[]> => {
     const res = await httpClient.get("/api/students/", { params: { class_section: classSectionId } });
-    return res.data?.results ?? res.data ?? [];
+    const list = res.data?.results ?? res.data ?? [];
+    return list.map((s: any) => ({
+      ...s,
+      first_name: s.first_name || s.user_detail?.first_name || (s.full_name ? s.full_name.split(' ')[0] : "Student"),
+      last_name: s.last_name || s.user_detail?.last_name || (s.full_name ? s.full_name.split(' ').slice(1).join(' ') : ""),
+      roll_no: s.roll_no || s.roll_number || "—",
+    }));
   },
+
 
   getAttendanceForDate: async (classSectionId: number, date: string): Promise<AttendanceRecord[]> => {
     const res = await httpClient.get("/api/attendance/", { params: { class_section: classSectionId, date } });
@@ -125,13 +134,21 @@ export const teacherApi = {
     const formData = new FormData();
     formData.append("class_section", String(classSectionId));
     if (date) formData.append("date", date);
-    // React Native's FormData "file" shape — not a real DOM File object.
-    formData.append("image", { uri: imageUri, name: "classroom.jpg", type: "image/jpeg" } as unknown as Blob);
+
+    if (Platform.OS === "web") {
+      const resp = await fetch(imageUri);
+      const blob = await resp.blob();
+      formData.append("image", blob, "classroom.jpg");
+    } else {
+      formData.append("image", { uri: imageUri, name: "classroom.jpg", type: "image/jpeg" } as unknown as Blob);
+    }
+
     const res = await httpClient.post("/api/attendance/batch-recognize/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data;
   },
+
 
   /** Publishes a homework/announcement post to a set of class-sections. */
   postAnnouncement: async (payload: {

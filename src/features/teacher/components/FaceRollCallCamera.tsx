@@ -55,10 +55,10 @@ export const FaceRollCallCamera: React.FC<Props> = ({ roster, onScan, onFinish, 
 
   const handleCapture = async () => {
     if (!cameraRef.current) return;
-    setStage("scanning");
     setScanError(null);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+      setStage("scanning");
       if (!photo?.uri) throw new Error("Couldn't capture a photo — try again.");
       const scanResult = await onScan(photo.uri);
       setResult(scanResult);
@@ -73,7 +73,9 @@ export const FaceRollCallCamera: React.FC<Props> = ({ roster, onScan, onFinish, 
       setMissingStatuses(initial);
       setStage("result");
     } catch (err: any) {
-      setScanError(err?.message || "Recognition failed — try rescanning or switch to manual.");
+      console.warn("Face roll call capture error:", err);
+      const detail = err?.response?.data?.error || err?.response?.data?.detail || err?.message || "Recognition failed — try rescanning or switch to manual.";
+      setScanError(detail);
       setStage("camera");
     }
   };

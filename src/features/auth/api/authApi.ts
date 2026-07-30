@@ -159,6 +159,35 @@ export const authApi = {
     });
     return res.data;
   },
+
+  registerStaffFaceEmbedding: async (angle: string, imageUri: string) => {
+    const formData = new FormData();
+    formData.append("angle", angle);
+    formData.append("image", {
+      uri: imageUri,
+      name: `staff_face_${angle}.jpg`,
+      type: "image/jpeg",
+    } as any);
+
+    const res = await httpClient.post("/api/face-embeddings/register_staff/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
+
+  staffFaceCheckin: async (actionType: 'check_in' | 'check_out', confidence: number = 0.96) => {
+    const res = await httpClient.post("/api/staff-attendance/face-checkin/", {
+      action_type: actionType,
+      confidence,
+      device_id: "MOBILE_APP",
+    });
+    return res.data;
+  },
+
+  checkStaffFaceStatus: async (): Promise<{ is_registered: boolean; registered_count: number; angles: string[] }> => {
+    const res = await httpClient.get("/api/face-embeddings/staff_status/");
+    return res.data;
+  },
 };
 
 

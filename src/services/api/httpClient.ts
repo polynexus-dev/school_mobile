@@ -68,9 +68,15 @@ httpClient.interceptors.response.use(
         else if (data.message) message = data.message;
         else {
           // Flatten standard DRF serializer errors
-          const values = Object.values(data);
-          if (values.length > 0) {
-            message = String(values[0]);
+          const firstVal = Object.values(data)[0];
+          if (Array.isArray(firstVal)) {
+            message = String(firstVal[0]);
+          } else if (typeof firstVal === "string") {
+            message = firstVal;
+          } else if (firstVal) {
+            message = JSON.stringify(firstVal);
+          } else {
+            message = JSON.stringify(data);
           }
         }
       }
