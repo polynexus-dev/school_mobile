@@ -60,6 +60,10 @@ export const MoreTabScreen: React.FC = () => {
       </View>
 
       <View style={styles.menu}>
+        <TouchableOpacity style={styles.menuRow} onPress={() => router.push(ROUTES.TEACHER.STAFF_ATTENDANCE)}>
+          <Text style={styles.menuLabel}>🎯 My Staff Facial Attendance Punch</Text>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.menuRow} onPress={() => router.push(ROUTES.TEACHER.NOTIFICATIONS)}>
           <Text style={styles.menuLabel}>Notifications</Text>
           <Text style={styles.chevron}>›</Text>

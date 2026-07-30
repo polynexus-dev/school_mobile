@@ -18,6 +18,7 @@ export const ROUTES = {
     QUICK_CREATE: "/(teacher)/quick-create" as const,
     MARKS_ENTRY: "/(teacher)/marks-entry" as const,
     NOTIFICATIONS: "/(teacher)/notifications" as const,
+    STAFF_ATTENDANCE: "/(teacher)/staff-attendance" as const,
   },
   PARENT: {
     DASHBOARD: "/(parent)/(tabs)/dashboard" as const,

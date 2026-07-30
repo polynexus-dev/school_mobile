@@ -93,6 +93,20 @@ export const TeacherDashboardScreen: React.FC = () => {
             {loading ? "Loading your classes…" : `${sections.length} class section${sections.length === 1 ? "" : "s"} assigned to you`}
           </Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.staffPunchBanner}
+          onPress={() => router.push(ROUTES.TEACHER.STAFF_ATTENDANCE)}
+          activeOpacity={0.85}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.staffPunchTitle}>🎯 Staff AI Facial Attendance</Text>
+            <Text style={styles.staffPunchSubtitle}>Biometric Punch In/Out · Geofenced</Text>
+          </View>
+          <View style={styles.staffPunchBtn}>
+            <Text style={styles.staffPunchBtnText}>Punch In ›</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.listSection}>
@@ -228,6 +242,21 @@ const styles = StyleSheet.create({
   dateNum: { fontSize: 11, color: COLORS.textMuted, fontWeight: "600" },
   dateDivider: { width: 1, height: 36, backgroundColor: COLORS.border },
   dateHint: { flex: 1, fontSize: 12.5, color: COLORS.textSecondary },
+  staffPunchBanner: {
+    marginTop: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+  },
+  staffPunchTitle: { color: COLORS.white, fontWeight: "700", fontSize: 13.5 },
+  staffPunchSubtitle: { color: "rgba(255, 255, 255, 0.8)", fontSize: 11, marginTop: 2 },
+  staffPunchBtn: { backgroundColor: COLORS.white, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12 },
+  staffPunchBtnText: { color: COLORS.primaryDark, fontWeight: "700", fontSize: 11.5 },
   listSection: { padding: 18, paddingBottom: 40 },
   listLabel: { fontSize: 11.5, fontWeight: "700", color: COLORS.textMuted, letterSpacing: 0.6, marginBottom: 10 },
   emptyState: { alignItems: "center", paddingVertical: 32 },

@@ -7,3 +7,4 @@ export * from "./screens/MarkAttendanceScreen";
 export * from "./screens/CorrectionsScreen";
 export * from "./screens/QuickCreateScreen";
 export * from "./screens/MarksEntryScreen";
+export * from "./screens/StaffFacialAttendanceScreen";
