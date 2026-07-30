@@ -130,4 +130,35 @@ export const authApi = {
     const res = await httpClient.post("/api/consent/withdraw/", consentType ? { consent_type: consentType } : {});
     return res.data;
   },
+
+  getConsentRecords: async () => {
+    const res = await httpClient.get("/api/consent-records/");
+    return res.data;
+  },
+
+  toggleConsentRecord: async (consentType: string, isGranted: boolean) => {
+    const res = await httpClient.post("/api/consent-records/toggle/", {
+      consent_type: consentType,
+      is_granted: isGranted,
+    });
+    return res.data;
+  },
+
+  registerFaceEmbedding: async (studentId: number, angle: string, imageUri: string) => {
+    const formData = new FormData();
+    formData.append("student", String(studentId));
+    formData.append("angle", angle);
+    formData.append("image", {
+      uri: imageUri,
+      name: `face_${angle}.jpg`,
+      type: "image/jpeg",
+    } as any);
+
+    const res = await httpClient.post("/api/face-embeddings/register/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
 };
+
+

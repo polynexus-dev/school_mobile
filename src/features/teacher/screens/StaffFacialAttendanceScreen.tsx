@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
-    justify.content: 'center',
+    justifyContent: 'center',
   },
   punchInButton: {
     backgroundColor: '#7C3AED',
