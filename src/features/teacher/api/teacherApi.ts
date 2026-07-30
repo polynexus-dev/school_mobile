@@ -35,6 +35,21 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
 }
 
+export interface SubstituteAssignment {
+  id: number;
+  date: string;
+  timetable_slot: number;
+  period_number: number;
+  class_section_name: string;
+  subject_name: string;
+  start_time: string;
+  end_time: string;
+  absent_teacher_name?: string;
+  substitute_teacher_name?: string;
+  status: string;
+  reason_notes?: string;
+}
+
 export interface BatchRecognitionMatch {
   student_id: number;
   name: string | null;
@@ -181,4 +196,29 @@ export const teacherApi = {
     // Fallback to 2 for demo consistency since the CorrectionsScreen displays 2 mock pending items
     return 2;
   },
+
+  getSubstituteAssignments: async (date?: string): Promise<SubstituteAssignment[]> => {
+    try {
+      const params: any = {};
+      if (date) params.date = date;
+      const res = await httpClient.get("/api/substitute-allocations/", { params });
+      return res.data?.results ?? res.data ?? [];
+    } catch (err) {
+      console.warn("Failed to fetch substitute allocations from backend:", err);
+      return [];
+    }
+  },
+
+  getMedicalAlerts: async (classSectionId?: number): Promise<{ high_risk_count: number; alerts: any[] }> => {
+    try {
+      const params: any = {};
+      if (classSectionId) params.class_section = classSectionId;
+      const res = await httpClient.get("/api/medical/alerts/", { params });
+      return res.data;
+    } catch (err) {
+      console.warn("Failed to fetch medical alerts from backend:", err);
+      return { high_risk_count: 0, alerts: [] };
+    }
+  },
 };
+

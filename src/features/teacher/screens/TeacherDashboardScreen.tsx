@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { COLORS } from "@/shared/theme/colors";
 import { ScreenWrapper } from "@/shared/ui/ScreenWrapper";
 import { useAuthStore } from "@store/authStore";
-import { teacherApi, ClassSection } from "../api/teacherApi";
+import { teacherApi, ClassSection, SubstituteAssignment } from "../api/teacherApi";
 import { ROUTES } from "@/constants/route";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,20 +18,28 @@ export const TeacherDashboardScreen: React.FC = () => {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const [sections, setSections] = useState<ClassSection[]>([]);
+  const [substitutes, setSubstitutes] = useState<SubstituteAssignment[]>([]);
+  const [medicalAlerts, setMedicalAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"mine" | "all">("mine");
   const insets = useSafeAreaInsets();
 
   const fetchSections = useCallback(async () => {
+    if (!user) return;
     try {
       const isHm = user?.teacher_profile?.is_hm;
-      const data = await teacherApi.getMyClassSections({
-        mine: isHm ? activeTab === "mine" : true,
-      });
-      setSections(data);
+      const todayStr = new Date().toISOString().split("T")[0];
+      const [sectionsData, subData, medData] = await Promise.all([
+        teacherApi.getMyClassSections({ mine: isHm ? activeTab === "mine" : true }),
+        teacherApi.getSubstituteAssignments(todayStr),
+        teacherApi.getMedicalAlerts(),
+      ]);
+      setSections(sectionsData);
+      setSubstitutes(subData);
+      setMedicalAlerts(medData?.alerts ?? []);
     } catch (err) {
-      console.error("Failed to load class sections:", err);
+      console.error("Failed to load dashboard data:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -88,6 +96,42 @@ export const TeacherDashboardScreen: React.FC = () => {
       </View>
 
       <View style={styles.listSection}>
+        {medicalAlerts.length > 0 && (
+          <View style={styles.medContainer}>
+            <Text style={styles.medHeaderTitle}>⚠️ HIGH-RISK MEDICAL ALERTS ({medicalAlerts.length})</Text>
+            {medicalAlerts.map((al) => (
+              <View key={al.id} style={styles.medCard}>
+                <View style={styles.medBadgeRow}>
+                  <Text style={styles.medStudentName}>{al.student_name} ({al.class_section_name})</Text>
+                  <Text style={styles.medBadgeText}>HIGH RISK</Text>
+                </View>
+                {al.allergies ? <Text style={styles.medText}>Allergies: {al.allergies}</Text> : null}
+                {al.chronic_conditions ? <Text style={styles.medText}>Conditions: {al.chronic_conditions}</Text> : null}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {substitutes.length > 0 && (
+          <View style={styles.subContainer}>
+            <Text style={styles.subHeaderTitle}>🤖 SUBSTITUTE CLASSES TODAY ({substitutes.length})</Text>
+            {substitutes.map((sub) => (
+              <View key={sub.id} style={styles.subCard}>
+                <View style={styles.subBadgeRow}>
+                  <Text style={styles.subBadgeText}>Period {sub.period_number}</Text>
+                  <Text style={styles.subTimeText}>{sub.start_time?.slice(0, 5)} - {sub.end_time?.slice(0, 5)}</Text>
+                </View>
+                <Text style={styles.subTitleText}>
+                  {sub.class_section_name} — <Text style={styles.subSubjectText}>{sub.subject_name}</Text>
+                </Text>
+                {sub.absent_teacher_name && (
+                  <Text style={styles.subMetaText}>Subbing for: {sub.absent_teacher_name}</Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.listLabel}>TODAY'S CLASSES</Text>
 
         {user?.teacher_profile?.is_hm && (
@@ -240,6 +284,36 @@ const styles = StyleSheet.create({
   tabActiveText: {
     color: COLORS.primary,
   },
+  subContainer: { marginBottom: 20 },
+  subHeaderTitle: { fontSize: 11.5, fontWeight: "700", color: "#6D28D9", letterSpacing: 0.6, marginBottom: 10 },
+  subCard: {
+    backgroundColor: "#F5F3FF",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+  },
+  subBadgeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  subBadgeText: { backgroundColor: "#7C3AED", color: COLORS.white, fontWeight: "700", fontSize: 11, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  subTimeText: { fontSize: 11.5, fontWeight: "600", color: "#6D28D9" },
+  subTitleText: { fontSize: 14, fontWeight: "700", color: "#4C1D95" },
+  subSubjectText: { fontWeight: "700", color: "#6D28D9" },
+  subMetaText: { fontSize: 12, color: "#6B7280", marginTop: 4, fontStyle: "italic" },
+  medContainer: { marginBottom: 20 },
+  medHeaderTitle: { fontSize: 11.5, fontWeight: "700", color: "#DC2626", letterSpacing: 0.6, marginBottom: 10 },
+  medCard: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  medBadgeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  medStudentName: { fontSize: 13.5, fontWeight: "700", color: "#991B1B" },
+  medBadgeText: { backgroundColor: "#DC2626", color: COLORS.white, fontWeight: "800", fontSize: 10, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  medText: { fontSize: 12, color: "#7F1D1D", marginTop: 2, fontWeight: "600" },
 });
 
 export default TeacherDashboardScreen;

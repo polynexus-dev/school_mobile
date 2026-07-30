@@ -16,3 +16,5 @@ export * from "./screens/HomeworkScreen";
 export * from "./screens/AnnouncementsScreen";
 export * from "./screens/PrivacyConsentScreen";
 export * from "./screens/LanguageScreen";
+export * from "./screens/CommunicationHubScreen";
+

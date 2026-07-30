@@ -14,7 +14,9 @@ export default function ParentLayout() {
       <Stack.Screen name="announcements" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="privacy-consent" />
+      <Stack.Screen name="communication-hub" />
       <Stack.Screen name="settings" />
     </Stack>
   );
 }
+
