@@ -3,16 +3,25 @@ import httpClient from "@services/api/httpClient";
 /**
  * Real fee endpoints (school_app/views/fees.py):
  *   GET  /api/fees/invoices/?student={id}         — paginated, scoped to the guardian's own verified children
- *   POST /api/fees/invoices/{id}/checkout/         — creates a Razorpay order for the remaining balance
- *   POST /api/fees/checkout/verify/                — {razorpay_order_id, razorpay_payment_id, razorpay_signature}
+ *   POST /api/fees/invoices/{id}/checkout/         — creates an order with whichever gateway the school has active
+ *                                                     (optionally {gateway: "razorpay"} to pick among several)
+ *   POST /api/fees/checkout/verify/                — {gateway_order_id, gateway_payment_id, ...signature fields}
+ *
+ * The school now configures its own gateway(s) — Razorpay, PayU, Cashfree,
+ * Paytm, Instamojo, PhonePe, or Stripe — via Settings > Payment Gateways on
+ * the web app (see school_app/payment_gateway_registry.py), and
+ * `createCheckoutOrder`'s `checkout_mode` tells the client how to complete
+ * checkout for whichever one is active: "modal_sdk" (Razorpay/Cashfree/
+ * Stripe — needs `public_key`/`payment_session_id`/`client_secret`),
+ * "redirect" (Instamojo/PhonePe — needs `redirect_url`), or "form_post"
+ * (PayU/Paytm — needs `form_action_url` + `form_fields`).
  *
  * NOTE: this wires the REST side fully, but does not trigger a native
- * checkout UI — the app has no react-native-razorpay (or WebView-based
- * Razorpay Checkout) integration yet, and adding the native SDK requires an
- * EAS/local prebuild this pass didn't include. `createCheckoutOrder`'s
- * result (order_id, amount, key_id) is exactly what that SDK call would
- * need; `verifyCheckout` is exactly what its success callback should POST.
- * See FeesPayScreen.tsx for the single stubbed seam.
+ * checkout UI yet — the app has no gateway SDK (or WebView-based checkout)
+ * integration, and adding one requires an EAS/local prebuild this pass
+ * didn't include. `createCheckoutOrder`'s result is exactly what that SDK
+ * call would need; `verifyCheckout` is exactly what its success callback
+ * should POST. See FeesPayScreen.tsx for the single stubbed seam.
  */
 
 export interface FeeInvoice {
@@ -31,13 +40,20 @@ export interface FeeInvoice {
 
 export interface CheckoutOrder {
   gateway: string;
+  checkout_mode: "modal_sdk" | "redirect" | "form_post";
   order_id: string;
   amount: string;
   convenience_fee_amount: string;
   total_amount: string;
   currency: string;
-  key_id: string | null;
   transaction_id: number;
+  // Only the field(s) matching `checkout_mode` will actually be present.
+  public_key: string | null;
+  client_secret: string | null;
+  payment_session_id: string | null;
+  redirect_url: string | null;
+  form_action_url: string | null;
+  form_fields: Record<string, string> | null;
 }
 
 export interface FeePayment {
@@ -70,15 +86,15 @@ export const feesApi = {
   getInvoices: async (studentId: number): Promise<FeeInvoice[]> =>
     fetchAllPages<FeeInvoice>("/api/fees/invoices/", { student: studentId }),
 
-  createCheckoutOrder: async (invoiceId: number): Promise<CheckoutOrder> => {
-    const res = await httpClient.post(`/api/fees/invoices/${invoiceId}/checkout/`);
+  createCheckoutOrder: async (invoiceId: number, gateway?: string): Promise<CheckoutOrder> => {
+    const res = await httpClient.post(`/api/fees/invoices/${invoiceId}/checkout/`, gateway ? { gateway } : {});
     return res.data;
   },
 
   verifyCheckout: async (params: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
+    gateway_order_id: string;
+    gateway_payment_id?: string;
+    [key: string]: string | undefined; // gateway-specific signature fields, e.g. razorpay_signature
   }): Promise<FeePayment> => {
     const res = await httpClient.post("/api/fees/checkout/verify/", params);
     return res.data;

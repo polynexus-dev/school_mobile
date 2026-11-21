@@ -7,22 +7,23 @@ import { feesApi, CheckoutOrder } from "../api/feesApi";
 
 /**
  * Real order-creation flow: on mount this hits the actual backend
- * (POST /api/fees/invoices/{id}/checkout/) and gets back a real Razorpay
- * order_id/amount/key_id. The one thing NOT wired is launching Razorpay's
- * checkout UI itself — there's no react-native-razorpay (or WebView-based
- * Razorpay Checkout) integration in this build yet, which needs a native
- * rebuild this pass didn't include.
+ * (POST /api/fees/invoices/{id}/checkout/) and gets back a real order for
+ * whichever gateway the school has active (Razorpay, PayU, Cashfree, Paytm,
+ * Instamojo, PhonePe, or Stripe — see Settings > Payment Gateways on the web
+ * app). The one thing NOT wired is launching that gateway's checkout UI
+ * itself — there's no gateway SDK (or WebView-based checkout) integration in
+ * this build yet, which needs a native rebuild this pass didn't include.
  *
  * TODO(payment-sdk): replace handlePay's Alert with a real checkout call,
- * e.g.:
- *   RazorpayCheckout.open({ key: order.key_id, order_id: order.order_id,
+ * branching on `order.checkout_mode`. For a Razorpay "modal_sdk" order e.g.:
+ *   RazorpayCheckout.open({ key: order.public_key, order_id: order.order_id,
  *     amount: order.total_amount, currency: order.currency, ... })
  *     .then((data) => feesApi.verifyCheckout({
- *       razorpay_order_id: data.razorpay_order_id,
- *       razorpay_payment_id: data.razorpay_payment_id,
+ *       gateway_order_id: data.razorpay_order_id,
+ *       gateway_payment_id: data.razorpay_payment_id,
  *       razorpay_signature: data.razorpay_signature,
  *     }))
- * `order` below already has everything that call needs.
+ * `order` below already has everything that call needs for any gateway.
  */
 export const FeesPayScreen: React.FC = () => {
   const router = useRouter();
@@ -54,10 +55,11 @@ export const FeesPayScreen: React.FC = () => {
     if (!order) return;
     setProcessing(true);
     // TODO(payment-sdk): see file header — this is the seam to swap in a
-    // real Razorpay checkout call once the native SDK is added.
+    // real gateway checkout call (branching on order.checkout_mode) once a
+    // native SDK is added.
     Alert.alert(
       "Payment provider not connected",
-      "Online checkout isn't wired to a payment SDK in this build yet. The order was created successfully on the school's system — ask the office to confirm payment status, or complete this from a build with the Razorpay SDK installed.",
+      "Online checkout isn't wired to a payment SDK in this build yet. The order was created successfully on the school's system — ask the office to confirm payment status, or complete this from a build with the gateway SDK installed.",
       [{ text: "OK", onPress: () => setProcessing(false) }]
     );
   };
@@ -105,7 +107,7 @@ export const FeesPayScreen: React.FC = () => {
             <TouchableOpacity style={styles.payBtn} onPress={handlePay} disabled={processing}>
               {processing ? <ActivityIndicator color="#fff" /> : <Text style={styles.payBtnText}>Pay ₹{Number(order.total_amount).toLocaleString("en-IN")}</Text>}
             </TouchableOpacity>
-            <Text style={styles.secureNote}>🔒 Secured by Razorpay · 256-bit encryption</Text>
+            <Text style={styles.secureNote}>🔒 Secured by {order.gateway} · 256-bit encryption</Text>
           </>
         )}
       </View>
